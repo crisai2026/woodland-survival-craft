@@ -1,0 +1,1982 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Woodland Survival Craft</title>
+<style>
+  :root { --slot: 44px; --hslot: 46px; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #243021;
+               font-family: system-ui, sans-serif; user-select: none; }
+  canvas { display: block; width: 100vw; height: 100vh; }
+  .darkBox { background: rgba(28, 34, 26, 0.82); color: #f1ede0; border-radius: 8px; }
+
+  /* Goal under the hearts */
+  #goal { position: fixed; left: 14px; top: 92px; max-width: 320px; font-size: 15px; line-height: 1.4;
+          padding: 6px 12px; pointer-events: none; }
+
+  /* Help (H) */
+  #help { position: fixed; right: 14px; top: 160px; font-size: 15px; line-height: 1.6; padding: 6px 12px;
+          max-width: 300px; }
+  #help .keys { display: none; }
+  #help.open .keys { display: block; }
+  #help b { color: #fff; }
+  #help button, .dialog button {
+    font: inherit; font-size: 15px; margin-top: 6px; padding: 5px 12px; cursor: pointer;
+    background: #d8cfa8; color: #23271f; border: 0; border-radius: 6px; }
+  #help button.danger { background: #d9a79a; }
+
+  /* ---------- Hotbar (always on screen) ---------- */
+  #hotbarWrap { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%);
+                display: flex; flex-direction: column; align-items: center; pointer-events: none; }
+  #itemName { color: #f1ede0; font-size: 17px; font-weight: 600; min-height: 1.5em; margin-bottom: 4px;
+              text-shadow: 0 1px 2px rgba(0,0,0,0.7); opacity: 0; text-align: center; }
+  #itemName.show { animation: nameFade 3s forwards; }
+  @keyframes nameFade { 0%, 65% { opacity: 1; } 100% { opacity: 0; } }
+  #hotbar { display: flex; gap: 2px; background: rgba(20, 22, 18, 0.55); padding: 3px; border-radius: 4px; }
+  .hslot { width: var(--hslot); height: var(--hslot); position: relative; box-sizing: border-box;
+           border: 3px solid #5c5c5c; background: rgba(139, 139, 139, 0.35); }
+  .hslot.sel { border-color: #f4f4f4; }
+  .hslot img { position: absolute; left: 6px; top: 5px; width: 28px; height: 28px; image-rendering: pixelated; }
+  .hslot .num { position: absolute; left: 2px; top: -1px; font-size: 11px; color: #e6e6e6; opacity: 0.8; }
+  .count { position: absolute; right: 3px; bottom: 0; font-size: 14px; font-weight: 700; color: #fff;
+           text-shadow: 1px 1px 0 #3f3f3f; pointer-events: none; }
+
+  /* ---------- Inventory screen (press E) ---------- */
+  #invScreen { position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
+               gap: 10px; background: rgba(15, 18, 14, 0.55); flex-wrap: wrap; padding-bottom: 80px;
+               box-sizing: border-box; }
+  #invScreen.open { display: flex; }
+  .mcPanel { background: #c6c6c6; color: #3f3f3f; padding: 12px 14px; border-radius: 4px;
+             border: 3px solid; border-color: #ffffff #555555 #555555 #ffffff; box-sizing: border-box; }
+  .label { font-size: 16px; font-weight: 600; margin: 2px 0 6px; }
+  .note { font-size: 13px; color: #555; margin: 6px 0; }
+  .slots { display: grid; grid-template-columns: repeat(10, var(--slot)); gap: 2px; }
+  .slots.hotrow { margin-top: 10px; }
+  .slot { width: var(--slot); height: var(--slot); position: relative; box-sizing: border-box;
+          background: #8b8b8b; border: 2px solid; border-color: #373737 #ffffff #ffffff #373737; cursor: pointer; }
+  .slot:hover { background: #a2a2a2; }
+  .slot.sel { outline: 2px solid #f4f4f4; outline-offset: -5px; }
+  .slot.dragOver { background: #b4b4b4; outline: 2px solid #fffbe0; outline-offset: -4px; }
+  .slot img { position: absolute; left: 6px; top: 5px; width: 28px; height: 28px; image-rendering: pixelated; pointer-events: none; }
+  .slot.big { width: 52px; height: 52px; }
+  .slot.big img { left: 9px; top: 9px; }
+  .craftArea { display: flex; align-items: center; gap: 14px; margin-bottom: 8px; }
+  .craftGrid { display: grid; gap: 2px; }
+  .arrow { font-size: 30px; color: #8b8b8b; }
+  button.book { font: inherit; font-size: 14px; margin-left: auto; padding: 6px 10px; cursor: pointer;
+                background: #7fb069; color: #1f3314; border: 2px solid #3f5f30; border-radius: 4px; }
+  #cursorItem { position: fixed; width: 32px; height: 32px; pointer-events: none; display: none;
+                transform: translate(-50%, -50%); z-index: 10; }
+  #cursorItem img { width: 32px; height: 32px; image-rendering: pixelated; }
+  #cursorItem .count { right: -4px; bottom: -4px; }
+
+  /* Recipe book */
+  #book { display: none; max-height: 76vh; overflow-y: auto; width: 270px; }
+  #book.open { display: block; }
+  .rbRow { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid #aaa; }
+  .rbGrid { display: grid; gap: 1px; }
+  .rbCell { width: 20px; height: 20px; background: #8b8b8b; }
+  .rbCell img, .rbOut img { width: 20px; height: 20px; image-rendering: pixelated; display: block; }
+  .rbOut { display: flex; align-items: center; gap: 4px; font-size: 13px; flex-wrap: wrap; }
+  .rbTag { font-size: 11px; color: #6a5a2a; width: 100%; }
+
+  /* Sleep fade and faint message */
+  #fade { position: fixed; inset: 0; background: #0b0f1a; opacity: 0; pointer-events: none;
+          transition: opacity 1.2s ease; }
+  #fade.on { opacity: 1; }
+  .dialog { position: fixed; left: 50%; top: 40%; transform: translate(-50%, -50%); display: none;
+            padding: 18px 24px; font-size: 18px; text-align: center; max-width: 80vw; }
+  .dialog.open { display: block; }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="goal" class="darkBox"></div>
+<div id="help" class="darkBox">
+  <div class="keys">
+    <b>Controls</b><br>
+    W A S D or arrows: walk<br>
+    F: chop, mine, hunt, break<br>
+    Space: jump<br>
+    1 – 0: choose a hotbar slot<br>
+    Q: place (table, tent, bed, campfire, torch, wall)<br>
+    R: eat food · sleep in a bed or tent<br>
+    E: inventory and crafting<br>
+    <span id="newWorldArea"><button id="newWorld" class="danger">Start a new world</button></span><br>
+  </div>
+  <span id="helpToggle">H: show controls</span>
+</div>
+<div id="hotbarWrap"><div id="itemName"></div><div id="hotbar"></div></div>
+<div id="invScreen">
+  <div id="book" class="mcPanel"></div>
+  <div id="invPanel" class="mcPanel"></div>
+</div>
+<div id="cursorItem"></div>
+<div id="fade"></div>
+<div id="faint" class="dialog darkBox">
+  <p id="faintText">You fainted from hunger.</p>
+  <button id="wakeUp">Wake up</button>
+</div>
+
+<!-- ============================================================
+     CONFIG — every number for the game lives here.
+     Change a number, save, reload the page.
+     ============================================================ -->
+<script>
+const CONFIG = {
+  world: {
+    tileSize: 40,          // pixels per tile
+    width: 90,             // world width in tiles
+    height: 90,            // world height in tiles
+    treeChance: 0.13,      // 0 to 1: how many tiles become trees
+    rockGroups: 34,        // how many groups of grey rocks
+    rockGroupSize: 2,      // how wide a rock group is (in tiles)
+    coalChance: 0.3,       // 0 to 1: how many rocks have coal in them
+    clearingRadius: 4,     // open space (in tiles) around the start
+    borderThickness: 2,    // rows of trees around the edge (these cannot be chopped)
+    regrowEvery: 20,       // seconds: a new tree grows somewhere far away
+    farAway: 700,          // pixels: new trees and animals appear at least this far from you
+    seed: 2026             // the first world. A new world gets a random seed.
+  },
+  player: {
+    speed: 150,            // pixels per second
+    size: 34,              // drawing size in pixels
+    hitbox: 22,            // collision size in pixels
+    turnSpeed: 12,         // how quickly he turns to face a new direction
+    jumpTime: 0.5,         // seconds for one jump (up and down)
+    jumpHeight: 10,        // pixels he rises at the top of a jump
+    light: 90              // pixels: small light around you at night
+  },
+  survival: {
+    maxHealth: 10,              // hearts
+    maxHunger: 10,              // roast chickens
+    hungerEverySeconds: 40,     // lose 1 chicken this often
+    starveDamageEverySeconds: 5,// with 0 chickens, lose 1 heart this often
+    healEverySeconds: 8,        // get 1 heart back this often ...
+    healWhenHungerAtLeast: 8,   // ... when you have at least this many chickens
+    wakeUpHunger: 6             // chickens you have after fainting
+  },
+  time: {
+    dayLength: 240,        // seconds of daytime
+    nightLength: 120,      // seconds of night
+    fadeLength: 20,        // seconds for evening and morning to change slowly
+    warnBefore: 30,        // seconds: "Night is coming" shows this long before night
+    maxDarkness: 0.62,     // 0 to 1: how dark the night gets
+    startTime: 25          // seconds into the first day when the game starts
+  },
+  actions: {
+    reach: 30,             // pixels in front of the player that F can reach
+    cooldown: 0.4,         // seconds between hits
+    swingTime: 0.3,        // seconds for one axe swing
+    fadeTime: 0.8          // seconds for a tree, rock or animal to slowly disappear
+  },
+  // Things on the map you can break with F.
+  // hits: hits needed with a basic tool. tool: 'axe' (you always have one) or 'pickaxe'.
+  // Better tools hit harder (see "power" in items).  light: glows at night.
+  blocks: {
+    tree:      { hits: 3, tool: 'axe',     drops: { wood: 1 },      solid: true,  natural: true },
+    stone:     { hits: 4, tool: 'pickaxe', drops: { stone: 1 },     solid: true,  natural: true },
+    coal:      { hits: 5, tool: 'pickaxe', drops: { coal: 1 },      solid: true,  natural: true },
+    table:     { hits: 2, tool: 'axe',     drops: { table: 1 },     solid: true },
+    tent:      { hits: 2, tool: 'axe',     drops: { tent: 1 },      solid: true,  sleep: true },
+    bed:       { hits: 2, tool: 'axe',     drops: { bed: 1 },       solid: true,  sleep: true },
+    campfire:  { hits: 2, tool: 'axe',     drops: { campfire: 1 },  solid: true,  light: 180 },
+    torch:     { hits: 1, tool: 'axe',     drops: { torch: 1 },     solid: false, light: 120 },
+    woodWall:  { hits: 3, tool: 'axe',     drops: { woodWall: 1 },  solid: true },
+    stoneWall: { hits: 4, tool: 'pickaxe', drops: { stoneWall: 1 }, solid: true }
+  },
+  tools: {
+    basicAxePower: 1,      // the axe you always carry
+    basicHuntPower: 1      // hunting with the basic axe
+  },
+  animals: {
+    walkTimeMin: 1, walkTimeMax: 3,   // seconds walking
+    restTimeMin: 1, restTimeMax: 4,   // seconds standing still
+    turnSpeed: 4,          // how quickly an animal turns
+    respawnEvery: 15,      // seconds: a new animal appears far away if there are too few
+    // hits = F presses with the basic axe. nearStart = how many start close to you.
+    kinds: {
+      rabbit: { name: 'Rabbit', count: 10, nearStart: 2, hits: 1, drops: { meat: 1 },
+                speed: 50, size: 16, hitbox: 12 },
+      deer:   { name: 'Deer',   count: 8,  nearStart: 1, hits: 4, drops: { meat: 4 },
+                speed: 40, size: 26, hitbox: 18 },
+      sheep:  { name: 'Sheep',  count: 10, nearStart: 3, hits: 5, drops: { wool: 2, meat: 1 },
+                speed: 30, size: 26, hitbox: 20 },
+      moose:  { name: 'Moose',  count: 4,  nearStart: 0, hits: 8, drops: { meat: 8 },
+                speed: 30, size: 36, hitbox: 28 }
+    }
+  },
+  drops: {
+    size: 18,              // pixels: how big a dropped item looks
+    spread: 8,             // pixels: how far apart drops land
+    pickupDelay: 0.6,      // seconds before a new drop can be picked up
+    magnetRadius: 60,      // pixels: drops slide toward you when this close
+    magnetSpeed: 140,      // pixels per second while sliding
+    pickupRadius: 16       // pixels: the drop goes in your inventory when this close
+  },
+  inventory: {
+    hotbarSize: 10,        // slots in the hotbar at the bottom of the screen
+    backpackSize: 20,      // extra slots you see when you press E
+    stackSize: 64          // most items stack up to this many in one slot
+  },
+  crafting: {
+    tableReach: 80,        // pixels: stand this close to a crafting table for the 3 x 3 grid
+    campfireReach: 80      // pixels: stand this close to a campfire to cook
+  },
+  // Everything you can carry.
+  // food: chickens it gives back.  tool + power: better tools hit harder.
+  // hunt: hunting power.  placeable: what it becomes on the map (press Q).  stack: max per slot.
+  items: {
+    wood:         { name: 'Wood' },
+    planks:       { name: 'Planks' },
+    sticks:       { name: 'Sticks' },
+    stone:        { name: 'Stone' },
+    coal:         { name: 'Coal' },
+    wool:         { name: 'Wool' },
+    meat:         { name: 'Raw meat',    food: 2 },
+    cookedMeat:   { name: 'Cooked meat', food: 5 },
+    woodPickaxe:  { name: 'Wooden pickaxe', stack: 1, tool: 'pickaxe', power: 1 },
+    stonePickaxe: { name: 'Stone pickaxe',  stack: 1, tool: 'pickaxe', power: 2 },
+    stoneAxe:     { name: 'Stone axe',      stack: 1, tool: 'axe',     power: 2 },
+    stoneSword:   { name: 'Stone sword',    stack: 1, hunt: 2 },
+    table:        { name: 'Crafting table', placeable: 'table' },
+    tent:         { name: 'Tent',           placeable: 'tent' },
+    bed:          { name: 'Bed',            placeable: 'bed' },
+    campfire:     { name: 'Campfire',       placeable: 'campfire' },
+    torch:        { name: 'Torch',          placeable: 'torch' },
+    woodWall:     { name: 'Wooden wall',    placeable: 'woodWall' },
+    stoneWall:    { name: 'Stone wall',     placeable: 'stoneWall' }
+  },
+  // Recipes, drawn like the crafting grid. A space means "leave this square empty".
+  // Recipes wider or taller than 2 need the 3 x 3 grid (stand next to a crafting table).
+  // near: 'campfire' means you must stand next to a campfire.
+  recipes: [
+    { makes: 'planks',       amount: 4, pattern: ['W'],                 key: { W: 'wood' } },
+    { makes: 'sticks',       amount: 4, pattern: ['P', 'P'],            key: { P: 'planks' } },
+    { makes: 'table',        amount: 1, pattern: ['PP', 'PP'],          key: { P: 'planks' } },
+    { makes: 'torch',        amount: 4, pattern: ['C', 'K'],            key: { C: 'coal', K: 'sticks' } },
+    { makes: 'woodPickaxe',  amount: 1, pattern: ['PPP', ' K ', ' K '], key: { P: 'planks', K: 'sticks' } },
+    { makes: 'stonePickaxe', amount: 1, pattern: ['SSS', ' K ', ' K '], key: { S: 'stone', K: 'sticks' } },
+    { makes: 'stoneAxe',     amount: 1, pattern: ['SS', 'SK', ' K'],    key: { S: 'stone', K: 'sticks' } },
+    { makes: 'stoneSword',   amount: 1, pattern: ['S', 'S', 'K'],       key: { S: 'stone', K: 'sticks' } },
+    { makes: 'woodWall',     amount: 6, pattern: ['PPP', 'PPP'],        key: { P: 'planks' } },
+    { makes: 'stoneWall',    amount: 6, pattern: ['SSS', 'SSS'],        key: { S: 'stone' } },
+    { makes: 'tent',         amount: 1, pattern: [' L ', 'LLL', 'K K'], key: { L: 'wool', K: 'sticks' } },
+    { makes: 'bed',          amount: 1, pattern: ['LLL', 'PPP'],        key: { L: 'wool', P: 'planks' } },
+    { makes: 'campfire',     amount: 1, pattern: [' K ', 'KCK', 'WWW'], key: { K: 'sticks', C: 'coal', W: 'wood' } },
+    { makes: 'cookedMeat',   amount: 1, pattern: ['M'],                 key: { M: 'meat' }, near: 'campfire' }
+  ],
+  save: {
+    key: 'woodland-survival-craft-save-v1',
+    everySeconds: 15       // the game saves itself this often (in this browser)
+  },
+  game: {
+    maxFrameTime: 0.05     // seconds; stops big jumps after switching tabs
+  },
+  colors: {
+    outside: '#243021',
+    grass: ['#6f9a4e', '#6b964b', '#73a052'],
+    grassTuft: '#5f8a43',
+    leaves: ['#3f7a3a', '#376d33', '#468541'],
+    rock: ['#8a8a86', '#7d7d79', '#979792'], coalSpot: '#2b2b2b',
+    treeShadow: 'rgba(20, 30, 15, 0.25)',
+    shirt: '#b5463b', shirtDark: '#7f2e28',
+    skin: '#e2b78d', hair: '#4b3526',
+    axeHandle: '#7a5230', axeHead: '#a8adb0',
+    deer: '#9a6b43', deerLight: '#c9a27a', deerDark: '#5e3f27', deerTail: '#eee6d8',
+    rabbit: '#a08c78', rabbitEar: '#c8b6a2', rabbitTail: '#f2ede4',
+    sheepWool: '#ecE8dc', sheepWoolShade: '#d3cdbf', sheepHead: '#5a544c', sheepLeg: '#4a453e',
+    moose: '#5a3e2a', mooseDark: '#3f2b1d', mooseAntler: '#c9b48a',
+    tableTop: '#b88b56', tableEdge: '#6e4a2c', tableLine: '#8a6437',
+    tentCloth: '#d9ceb2', tentShade: '#b9ad8f', tentPole: '#7a5230', tentDoor: '#4b3f30',
+    bedFrame: '#8a6437', bedPillow: '#efe9dd', bedBlanket: '#b5463b',
+    stone: '#8a8a86', fireOuter: '#e8893a', fireInner: '#f2c14e', fireGlow: 'rgba(242, 170, 80, 0.16)',
+    woodWall: '#a47a4f', woodWallLine: '#7a5230',
+    stoneWall: '#8f8f8a', stoneWallLine: '#666662',
+    heart: '#d9453f', heartShine: '#f08a84', chicken: '#b5703c', chickenShine: '#d89a5e',
+    bone: '#efe6d6', iconEmpty: '#4a3f38',
+    night: '8, 12, 30',
+    hitBar: '#f1ede0', hitBarBack: 'rgba(0, 0, 0, 0.35)',
+    shadow: 'rgba(0, 0, 0, 0.18)'
+  }
+};
+</script>
+
+<!-- ============================================================
+     STORY — no story for now (SPEC 1).
+     ============================================================ -->
+<script>
+const Story = {
+  enabled: false
+};
+</script>
+
+<!-- ============================================================
+     WORLD — the forest map: trees, rocks and things you build (SPEC 2).
+     ============================================================ -->
+<script>
+const World = (() => {
+  const W = CONFIG.world;
+  const C = CONFIG.colors;
+  const B = CONFIG.blocks;
+  // Tile numbers: 0 = grass, then one number for each block in CONFIG.blocks.
+  const NAMES = ['grass', ...Object.keys(B)];
+  const TILES = {};
+  NAMES.forEach((n, i) => TILES[n] = i);
+  const GRASS = 0, TREE = TILES.tree;
+  let tiles, seed = W.seed, wantedTrees = 0, regrowTimer = 0;
+  let damage = new Map();     // tile index -> damage taken
+  let fading = [];            // broken things slowly disappearing
+
+  // Small repeatable random number generator (same seed = same forest).
+  function makeRandom(s) {
+    return function () {
+      s = (s + 0x6D2B79F5) | 0;
+      let t = Math.imul(s ^ (s >>> 15), 1 | s);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  // A fixed "random" value for any tile position, used for colours.
+  function hash(x, y, k) {
+    let h = (x * 374761393 + y * 668265263 + k * 2147483647 + seed) | 0;
+    h = Math.imul(h ^ (h >>> 13), 1274126177);
+    return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+  }
+
+  function nameAt(tx, ty) { return NAMES[tileAt(tx, ty)]; }
+  function blockAt(tx, ty) { return B[nameAt(tx, ty)] || null; }
+
+  function generate(newSeed) {
+    seed = newSeed;
+    const rand = makeRandom(seed);
+    tiles = new Uint8Array(W.width * W.height);
+    const cx = Math.floor(W.width / 2), cy = Math.floor(W.height / 2);
+    const nearStart = (x, y, extra = 0) => Math.hypot(x - cx, y - cy) <= W.clearingRadius + extra;
+    for (let y = 0; y < W.height; y++)
+      for (let x = 0; x < W.width; x++) {
+        const r = rand();
+        tiles[y * W.width + x] = isBorder(x, y) ? TREE : (!nearStart(x, y) && r < W.treeChance ? TREE : GRASS);
+      }
+    // Groups of grey rocks, some with coal.
+    for (let g = 0; g < W.rockGroups; g++) {
+      const gx = Math.floor(rand() * W.width), gy = Math.floor(rand() * W.height);
+      const size = W.rockGroupSize;
+      for (let y = gy - size; y <= gy + size; y++)
+        for (let x = gx - size; x <= gx + size; x++) {
+          if (x < 0 || y < 0 || x >= W.width || y >= W.height || isBorder(x, y) || nearStart(x, y, 1)) continue;
+          if (Math.hypot(x - gx, y - gy) > size + 0.3 || rand() < 0.35) continue;
+          tiles[y * W.width + x] = rand() < W.coalChance ? TILES.coal : TILES.stone;
+        }
+    }
+    // Make sure there is one small rock group near the start.
+    for (let i = 0; i < 3; i++) {
+      const x = cx + 6 + i, y = cy - 3;
+      tiles[y * W.width + x] = i === 1 ? TILES.coal : TILES.stone;
+    }
+    wantedTrees = countTrees();
+    damage = new Map(); fading = [];
+  }
+
+  function countTrees() { let n = 0; for (const t of tiles) if (t === TREE) n++; return n; }
+
+  function isBorder(tx, ty) {
+    const b = W.borderThickness;
+    return tx < b || ty < b || tx >= W.width - b || ty >= W.height - b;
+  }
+
+  function spawnPoint() {
+    return { x: (Math.floor(W.width / 2) + 0.5) * W.tileSize, y: (Math.floor(W.height / 2) + 0.5) * W.tileSize };
+  }
+
+  function tileAt(tx, ty) {
+    if (tx < 0 || ty < 0 || tx >= W.width || ty >= W.height) return TREE;
+    return tiles[ty * W.width + tx];
+  }
+
+  // Is this pixel position blocked?
+  function isSolidAt(px, py) {
+    const b = blockAt(Math.floor(px / W.tileSize), Math.floor(py / W.tileSize));
+    return !!(b && b.solid);
+  }
+
+  function tileOf(px, py) { return { tx: Math.floor(px / W.tileSize), ty: Math.floor(py / W.tileSize) }; }
+
+  // Returns { tx, ty, name, block } for a breakable thing at this pixel, or null.
+  function breakableAt(px, py) {
+    const { tx, ty } = tileOf(px, py);
+    const name = nameAt(tx, ty);
+    if (name === 'grass' || isBorder(tx, ty)) return null;
+    return { tx, ty, name, block: B[name] };
+  }
+
+  // One hit. Returns the drops when it breaks, otherwise null.
+  function hitBlock(tx, ty, power) {
+    const i = ty * W.width + tx;
+    const name = NAMES[tiles[i]];
+    const dmg = (damage.get(i) || 0) + power;
+    if (dmg < B[name].hits) { damage.set(i, dmg); return null; }
+    damage.delete(i);
+    tiles[i] = GRASS;
+    fading.push({ tx, ty, name, time: CONFIG.actions.fadeTime });
+    return B[name].drops;
+  }
+
+  // Put something on an empty grass tile.
+  function place(tx, ty, name) {
+    if (isBorder(tx, ty) || tileAt(tx, ty) !== GRASS) return false;
+    tiles[ty * W.width + tx] = TILES[name];
+    return true;
+  }
+
+  // Is there a tile with this name within r pixels of the point?
+  function hasNear(px, py, name, r) {
+    const ts = W.tileSize, type = TILES[name];
+    const x0 = Math.floor((px - r) / ts), x1 = Math.floor((px + r) / ts);
+    const y0 = Math.floor((py - r) / ts), y1 = Math.floor((py + r) / ts);
+    for (let ty = y0; ty <= y1; ty++)
+      for (let tx = x0; tx <= x1; tx++) {
+        if (tileAt(tx, ty) !== type) continue;
+        const nx = Math.max(tx * ts, Math.min(px, (tx + 1) * ts));
+        const ny = Math.max(ty * ts, Math.min(py, (ty + 1) * ts));
+        if (Math.hypot(nx - px, ny - py) <= r) return true;
+      }
+    return false;
+  }
+
+  // No built things (walls, beds ...) close to this tile?
+  function nothingBuiltNear(tx, ty, r) {
+    for (let y = ty - r; y <= ty + r; y++)
+      for (let x = tx - r; x <= tx + r; x++) {
+        const b = blockAt(x, y);
+        if (b && !b.natural) return false;
+      }
+    return true;
+  }
+
+  // A random grass tile far away from the player.
+  function randomFarGrass(rand) {
+    const pl = Mechanics.player;
+    for (let tries = 0; tries < 60; tries++) {
+      const tx = Math.floor(rand() * W.width), ty = Math.floor(rand() * W.height);
+      if (tileAt(tx, ty) !== GRASS || isBorder(tx, ty)) continue;
+      const x = (tx + 0.5) * W.tileSize, y = (ty + 0.5) * W.tileSize;
+      if (Math.hypot(x - pl.x, y - pl.y) < W.farAway) continue;
+      return { tx, ty, x, y };
+    }
+    return null;
+  }
+
+  function update(dt) {
+    fading.forEach(f => f.time -= dt);
+    fading = fading.filter(f => f.time > 0);
+    // Trees grow back slowly, far away from you.
+    regrowTimer += dt;
+    if (regrowTimer >= W.regrowEvery) {
+      regrowTimer = 0;
+      if (countTrees() < wantedTrees) {
+        const spot = randomFarGrass(Math.random);
+        if (spot && nothingBuiltNear(spot.tx, spot.ty, 3) && !Animals.blocksAt(spot.x, spot.y, W.tileSize / 2, null))
+          tiles[spot.ty * W.width + spot.tx] = TREE;
+      }
+    }
+  }
+
+  // Lights for the night: [{ x, y, r }] in screen pixels.
+  function lights(camX, camY, viewW, viewH) {
+    const ts = W.tileSize, out = [], m = 5;
+    const x0 = Math.max(0, Math.floor(camX / ts) - m), y0 = Math.max(0, Math.floor(camY / ts) - m);
+    const x1 = Math.min(W.width - 1, Math.floor((camX + viewW) / ts) + m);
+    const y1 = Math.min(W.height - 1, Math.floor((camY + viewH) / ts) + m);
+    for (let ty = y0; ty <= y1; ty++)
+      for (let tx = x0; tx <= x1; tx++) {
+        const b = blockAt(tx, ty);
+        if (b && b.light) out.push({ x: (tx + 0.5) * ts - camX, y: (ty + 0.5) * ts - camY, r: b.light });
+      }
+    return out;
+  }
+
+  // ----- Saving -----
+  function save() {
+    let s = '';
+    for (let i = 0; i < tiles.length; i++) s += String.fromCharCode(tiles[i]);
+    return { seed, tiles: btoa(s), wantedTrees };
+  }
+  function load(d) {
+    seed = d.seed;
+    const s = atob(d.tiles);
+    tiles = new Uint8Array(W.width * W.height);
+    if (s.length !== tiles.length) throw new Error('world size changed');
+    for (let i = 0; i < s.length; i++) tiles[i] = s.charCodeAt(i);
+    wantedTrees = d.wantedTrees || countTrees();
+    damage = new Map(); fading = [];
+  }
+
+  // Small bar that shows how many hits are left.
+  function drawHitBar(ctx, cx, top, fractionLeft) {
+    const w = 26, h = 5;
+    ctx.fillStyle = C.hitBarBack;
+    ctx.fillRect(Math.round(cx - w / 2), Math.round(top), w, h);
+    ctx.fillStyle = C.hitBar;
+    ctx.fillRect(Math.round(cx - w / 2) + 1, Math.round(top) + 1, Math.round((w - 2) * fractionLeft), h - 2);
+  }
+
+  // ----- Drawing each kind of tile -----
+  function drawGrass(ctx, sx, sy, tx, ty) {
+    const ts = W.tileSize;
+    ctx.fillStyle = C.grass[Math.floor(hash(tx, ty, 1) * C.grass.length)];
+    ctx.fillRect(sx, sy, ts, ts);          // plain grass: no small marks (they looked like cobwebs)
+  }
+
+  function drawBlocky(ctx, sx, sy, tx, ty, colors, pad, spots) {
+    const ts = W.tileSize, cells = 4, cs = (ts - pad * 2) / cells;
+    ctx.fillStyle = C.treeShadow;
+    ctx.fillRect(sx + pad + 4, sy + pad + 4, ts - pad * 2, ts - pad * 2);
+    for (let cy = 0; cy < cells; cy++)
+      for (let cx = 0; cx < cells; cx++) {
+        const h = hash(tx * 4 + cx, ty * 4 + cy, 5);
+        ctx.fillStyle = spots && hash(tx * 4 + cx, ty * 4 + cy, 9) < 0.3 ? spots : colors[Math.floor(h * colors.length)];
+        ctx.fillRect(sx + pad + cx * cs, sy + pad + cy * cs, Math.ceil(cs), Math.ceil(cs));
+      }
+  }
+  function drawTree(ctx, sx, sy, tx, ty)  { drawBlocky(ctx, sx, sy, tx, ty, C.leaves, 2); }
+  function drawStone(ctx, sx, sy, tx, ty) { drawBlocky(ctx, sx, sy, tx, ty, C.rock, 4); }
+  function drawCoal(ctx, sx, sy, tx, ty)  { drawBlocky(ctx, sx, sy, tx, ty, C.rock, 4, C.coalSpot); }
+
+  function drawTable(ctx, sx, sy) {
+    const ts = W.tileSize, pad = 5;
+    ctx.fillStyle = C.treeShadow;
+    ctx.fillRect(sx + pad + 3, sy + pad + 3, ts - pad * 2, ts - pad * 2);
+    ctx.fillStyle = C.tableEdge;
+    ctx.fillRect(sx + pad, sy + pad, ts - pad * 2, ts - pad * 2);
+    ctx.fillStyle = C.tableTop;
+    ctx.fillRect(sx + pad + 3, sy + pad + 3, ts - pad * 2 - 6, ts - pad * 2 - 6);
+    ctx.fillStyle = C.tableLine;                      // 3 x 3 grid on top
+    const inner = ts - pad * 2 - 6, step = inner / 3;
+    for (let i = 1; i < 3; i++) {
+      ctx.fillRect(Math.round(sx + pad + 3 + i * step) - 1, sy + pad + 3, 2, inner);
+      ctx.fillRect(sx + pad + 3, Math.round(sy + pad + 3 + i * step) - 1, inner, 2);
+    }
+  }
+
+  function drawTent(ctx, sx, sy) {
+    const ts = W.tileSize, pad = 3, s = ts - pad * 2;
+    ctx.fillStyle = C.treeShadow;
+    ctx.fillRect(sx + pad + 3, sy + pad + 3, s, s);
+    ctx.fillStyle = C.tentCloth;  ctx.fillRect(sx + pad, sy + pad, s / 2, s);          // left roof
+    ctx.fillStyle = C.tentShade;  ctx.fillRect(sx + pad + s / 2, sy + pad, s / 2, s);  // right roof
+    ctx.fillStyle = C.tentPole;   ctx.fillRect(sx + ts / 2 - 1, sy + pad, 2, s);       // ridge
+    ctx.fillStyle = C.tentDoor;   ctx.fillRect(sx + ts / 2 - 5, sy + pad + s - 6, 10, 6);
+  }
+
+  function drawBed(ctx, sx, sy) {
+    const ts = W.tileSize, w = 24, h = 34, x = sx + (ts - w) / 2, y = sy + (ts - h) / 2;
+    ctx.fillStyle = C.treeShadow; ctx.fillRect(x + 3, y + 3, w, h);
+    ctx.fillStyle = C.bedFrame;   ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = C.bedPillow;  ctx.fillRect(x + 3, y + 3, w - 6, 8);
+    ctx.fillStyle = C.bedBlanket; ctx.fillRect(x + 3, y + 13, w - 6, h - 16);
+  }
+
+  function drawCampfire(ctx, sx, sy) {
+    const ts = W.tileSize, cx = sx + ts / 2, cy = sy + ts / 2;
+    ctx.fillStyle = C.fireGlow;                           // soft, steady glow (no flicker)
+    ctx.beginPath(); ctx.arc(cx, cy, 34, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = C.stone;                              // ring of stones
+    for (let i = 0; i < 8; i++) {
+      const a = i / 8 * Math.PI * 2;
+      ctx.fillRect(Math.round(cx + Math.cos(a) * 13) - 3, Math.round(cy + Math.sin(a) * 13) - 3, 6, 6);
+    }
+    ctx.save(); ctx.translate(cx, cy);                    // crossed logs
+    ctx.fillStyle = C.tableEdge;
+    ctx.rotate(Math.PI / 4);  ctx.fillRect(-10, -2, 20, 4);
+    ctx.rotate(-Math.PI / 2); ctx.fillRect(-10, -2, 20, 4);
+    ctx.restore();
+    ctx.fillStyle = C.fireOuter; ctx.fillRect(cx - 5, cy - 5, 10, 10);
+    ctx.fillStyle = C.fireInner; ctx.fillRect(cx - 2, cy - 3, 5, 5);
+  }
+
+  function drawTorch(ctx, sx, sy) {
+    const ts = W.tileSize, cx = sx + ts / 2, cy = sy + ts / 2;
+    ctx.fillStyle = C.fireGlow;
+    ctx.beginPath(); ctx.arc(cx, cy - 4, 16, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = C.shadow;    ctx.fillRect(cx - 1, cy + 8, 6, 3);
+    ctx.fillStyle = C.axeHandle; ctx.fillRect(cx - 2, cy - 4, 4, 14);
+    ctx.fillStyle = C.fireOuter; ctx.fillRect(cx - 4, cy - 11, 8, 8);
+    ctx.fillStyle = C.fireInner; ctx.fillRect(cx - 2, cy - 9, 4, 4);
+  }
+
+  function drawWall(ctx, sx, sy, tx, ty, fill, line) {
+    const ts = W.tileSize;
+    ctx.fillStyle = fill; ctx.fillRect(sx, sy, ts, ts);
+    ctx.fillStyle = line;
+    ctx.fillRect(sx, sy, ts, 2); ctx.fillRect(sx, sy + ts - 2, ts, 2);
+    ctx.fillRect(sx, sy, 2, ts); ctx.fillRect(sx + ts - 2, sy, 2, ts);
+    for (let r = 1; r < 4; r++) ctx.fillRect(sx, sy + r * 10, ts, 2);          // rows
+    for (let r = 0; r < 4; r++) {                                              // joins
+      const off = r % 2 ? 10 : 22;
+      ctx.fillRect(sx + off, sy + r * 10, 2, 10);
+    }
+  }
+  function drawWoodWall(ctx, sx, sy, tx, ty)  { drawWall(ctx, sx, sy, tx, ty, C.woodWall, C.woodWallLine); }
+  function drawStoneWall(ctx, sx, sy, tx, ty) { drawWall(ctx, sx, sy, tx, ty, C.stoneWall, C.stoneWallLine); }
+
+  const drawTile = {
+    tree: drawTree, stone: drawStone, coal: drawCoal, table: drawTable, tent: drawTent,
+    bed: drawBed, campfire: drawCampfire, torch: drawTorch, woodWall: drawWoodWall, stoneWall: drawStoneWall
+  };
+
+  // Draw only the tiles that are on screen.
+  function draw(ctx, camX, camY, viewW, viewH) {
+    const ts = W.tileSize;
+    const x0 = Math.max(0, Math.floor(camX / ts)), y0 = Math.max(0, Math.floor(camY / ts));
+    const x1 = Math.min(W.width - 1, Math.floor((camX + viewW) / ts));
+    const y1 = Math.min(W.height - 1, Math.floor((camY + viewH) / ts));
+    for (let ty = y0; ty <= y1; ty++)
+      for (let tx = x0; tx <= x1; tx++)
+        drawGrass(ctx, tx * ts - camX, ty * ts - camY, tx, ty);
+    for (let ty = y0; ty <= y1; ty++)
+      for (let tx = x0; tx <= x1; tx++) {
+        const t = tiles[ty * W.width + tx];
+        if (t !== GRASS) drawTile[NAMES[t]](ctx, tx * ts - camX, ty * ts - camY, tx, ty);
+      }
+    // Broken things fade away slowly.
+    fading.forEach(f => {
+      ctx.globalAlpha = f.time / CONFIG.actions.fadeTime;
+      drawTile[f.name](ctx, f.tx * ts - camX, f.ty * ts - camY, f.tx, f.ty);
+      ctx.globalAlpha = 1;
+    });
+    // Hit bars on damaged things.
+    damage.forEach((dmg, i) => {
+      const tx = i % W.width, ty = Math.floor(i / W.width);
+      const b = B[NAMES[tiles[i]]];
+      if (b) drawHitBar(ctx, tx * ts - camX + ts / 2, ty * ts - camY - 8, 1 - dmg / b.hits);
+    });
+  }
+
+  return { generate, spawnPoint, isSolidAt, isBorder, tileAt, nameAt, blockAt, tileOf, breakableAt,
+           hitBlock, place, hasNear, update, draw, lights, drawHitBar, makeRandom, randomFarGrass,
+           save, load, TILES, GRASS, getSeed: () => seed };
+})();
+</script>
+
+<!-- ============================================================
+     ANIMALS — calm rabbits, deer, sheep and moose (part of WORLD).
+     ============================================================ -->
+<script>
+const Animals = (() => {
+  const A = CONFIG.animals;
+  const C = CONFIG.colors;
+  const W = CONFIG.world;
+  let list = [];
+  let rand = Math.random, respawnTimer = 0;
+
+  function between(min, max) { return min + rand() * (max - min); }
+  function kindOf(a) { return A.kinds[a.kind]; }
+
+  function make(kind, x, y) {
+    const angle = rand() * Math.PI * 2;
+    return { kind, x, y, angle, targetAngle: angle, dx: 0, dy: 0, walking: false,
+             timer: between(A.restTimeMin, A.restTimeMax), hits: 0, dying: false, fade: 0 };
+  }
+
+  function init() {
+    rand = World.makeRandom(World.getSeed() + 77);
+    list = [];
+    const spawn = World.spawnPoint();
+    Object.keys(A.kinds).forEach(kind => {
+      const k = A.kinds[kind];
+      let made = 0, tries = 0;
+      while (made < k.count && tries < 8000) {
+        tries++;
+        const tx = Math.floor(rand() * W.width), ty = Math.floor(rand() * W.height);
+        if (World.isBorder(tx, ty) || World.tileAt(tx, ty) !== World.GRASS) continue;
+        const x = (tx + 0.5) * W.tileSize, y = (ty + 0.5) * W.tileSize;
+        const d = Math.hypot(x - spawn.x, y - spawn.y) / W.tileSize;
+        // The first few of each kind start near you so you can see them.
+        if (made < k.nearStart ? (d < W.clearingRadius + 1 || d > 9) : d < W.clearingRadius + 2) continue;
+        const a = make(kind, x, y);
+        if (!canStand(a, x, y)) continue;
+        list.push(a);
+        made++;
+      }
+    });
+    rand = Math.random;
+  }
+
+  // Does a living animal overlap this box? (skip = the animal asking)
+  function blocksAt(x, y, half, skip) {
+    return list.some(a => {
+      if (a === skip || a.dying) return false;
+      const h = kindOf(a).hitbox / 2;
+      return Math.abs(a.x - x) < half + h && Math.abs(a.y - y) < half + h;
+    });
+  }
+
+  function canStand(a, x, y) {
+    const h = kindOf(a).hitbox / 2;
+    if (World.isSolidAt(x - h, y - h) || World.isSolidAt(x + h, y - h) ||
+        World.isSolidAt(x - h, y + h) || World.isSolidAt(x + h, y + h)) return false;
+    if (blocksAt(x, y, h, a)) return false;
+    const pl = Mechanics.player, ph = CONFIG.player.hitbox / 2;
+    return !(Math.abs(pl.x - x) < h + ph && Math.abs(pl.y - y) < h + ph);
+  }
+
+  function update(dt) {
+    list.forEach(a => {
+      if (a.dying) { a.fade -= dt; return; }
+      a.timer -= dt;
+      if (a.timer <= 0) {
+        a.walking = !a.walking;
+        if (a.walking) {
+          const dir = rand() * Math.PI * 2;
+          a.dx = Math.cos(dir); a.dy = Math.sin(dir);
+          a.targetAngle = dir + Math.PI / 2;
+          a.timer = between(A.walkTimeMin, A.walkTimeMax);
+        } else {
+          a.timer = between(A.restTimeMin, A.restTimeMax);
+        }
+      }
+      if (a.walking) {
+        const step = kindOf(a).speed * dt;
+        const nx = a.x + a.dx * step, ny = a.y + a.dy * step;
+        if (canStand(a, nx, ny)) { a.x = nx; a.y = ny; }
+        else { a.walking = false; a.timer = between(A.restTimeMin, A.restTimeMax); }
+      }
+      let diff = a.targetAngle - a.angle;
+      diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+      a.angle += diff * Math.min(1, dt * A.turnSpeed);
+    });
+    list = list.filter(a => !a.dying || a.fade > 0);
+
+    // New animals appear far away when there are too few.
+    respawnTimer += dt;
+    if (respawnTimer >= A.respawnEvery) {
+      respawnTimer = 0;
+      const kind = Object.keys(A.kinds).find(k => list.filter(a => a.kind === k && !a.dying).length < A.kinds[k].count);
+      const spot = kind && World.randomFarGrass(Math.random);
+      if (spot) { const a = make(kind, spot.x, spot.y); if (canStand(a, spot.x, spot.y)) list.push(a); }
+    }
+  }
+
+  // The closest living animal that the point touches, or null.
+  function findNear(px, py) {
+    let best = null, bestD = Infinity;
+    list.forEach(a => {
+      if (a.dying) return;
+      const d = Math.hypot(a.x - px, a.y - py);
+      if (d <= kindOf(a).size * 0.6 + 8 && d < bestD) { best = a; bestD = d; }
+    });
+    return best;
+  }
+
+  // A hit with some power. Returns its drops when the hunt is done, otherwise null.
+  function hit(a, power) {
+    a.hits += power;
+    a.walking = false;
+    a.timer = between(A.restTimeMin, A.restTimeMax);
+    if (a.hits < kindOf(a).hits) return null;
+    a.dying = true;
+    a.fade = CONFIG.actions.fadeTime;
+    return kindOf(a).drops;
+  }
+
+  function save() { return list.filter(a => !a.dying).map(a => ({ kind: a.kind, x: Math.round(a.x), y: Math.round(a.y) })); }
+  function load(d) { list = d.filter(a => A.kinds[a.kind]).map(a => make(a.kind, a.x, a.y)); }
+
+  // ----- Drawings, seen from above. Each faces "up" before rotating. -----
+  function rect(ctx, color, x, y, w, h, p) { ctx.fillStyle = color; ctx.fillRect(x * p, y * p, w * p, h * p); }
+
+  const drawBody = {
+    rabbit(ctx, p) {
+      rect(ctx, C.rabbit,     -2.5, -2,   5,   6,   p);   // body
+      rect(ctx, C.rabbit,     -2,   -6,   4,   4,   p);   // head
+      rect(ctx, C.rabbitEar,  -2,   -10,  1.5, 4.5, p);   // ears
+      rect(ctx, C.rabbitEar,   0.5, -10,  1.5, 4.5, p);
+      rect(ctx, C.rabbitTail, -1,    4,   2,   2,   p);   // tail
+    },
+    deer(ctx, p) {
+      rect(ctx, C.deer,     -3,   -4,   6,   10,  p);     // body
+      rect(ctx, C.deerDark, -0.5, -3,   1,   7,   p);     // back stripe
+      rect(ctx, C.deerTail, -1,    6,   2,   1.5, p);     // tail
+      rect(ctx, C.deer,     -2,   -8,   4,   4,   p);     // head
+      rect(ctx, C.deerDark, -1,   -9,   2,   1,   p);     // nose
+      rect(ctx, C.deerLight,-3.5, -7.5, 1.5, 1.5, p);     // ears
+      rect(ctx, C.deerLight, 2,   -7.5, 1.5, 1.5, p);
+    },
+    sheep(ctx, p) {                                       // blocky white sheep, like Minecraft
+      rect(ctx, C.sheepLeg,       -4,   -3,  1.5, 2,  p);  // legs peeking out
+      rect(ctx, C.sheepLeg,        2.5, -3,  1.5, 2,  p);
+      rect(ctx, C.sheepLeg,       -4,    4,  1.5, 2,  p);
+      rect(ctx, C.sheepLeg,        2.5,  4,  1.5, 2,  p);
+      rect(ctx, C.sheepWool,      -3.5, -4.5, 7, 11, p);   // fluffy body
+      rect(ctx, C.sheepWoolShade, -2.5, -2,  2, 2,  p);    // wool curls
+      rect(ctx, C.sheepWoolShade,  1,    1,  2, 2,  p);
+      rect(ctx, C.sheepWoolShade, -2,    3.5,2, 2,  p);
+      rect(ctx, C.sheepHead,      -2,   -8.5,4, 4,  p);    // grey face
+      rect(ctx, C.sheepWool,      -2,   -6,  4, 1.5, p);   // wool on top of the head
+      rect(ctx, C.sheepHead,      -3.5, -7.5,1.5, 1.5, p); // ears
+      rect(ctx, C.sheepHead,       2,   -7.5,1.5, 1.5, p);
+    },
+    moose(ctx, p) {
+      rect(ctx, C.moose,       -3.5, -4,   7,   11,  p);  // big body
+      rect(ctx, C.mooseDark,   -3.5, -4,   7,   3,   p);  // dark shoulders
+      rect(ctx, C.moose,       -2,   -8.5, 4,   5,   p);  // head
+      rect(ctx, C.mooseDark,   -1.5, -9.5, 3,   1.5, p);  // nose
+      rect(ctx, C.mooseAntler, -6.5, -7.5, 4,   2,   p);  // wide flat antlers
+      rect(ctx, C.mooseAntler,  2.5, -7.5, 4,   2,   p);
+      rect(ctx, C.mooseAntler, -6.5, -9,   1,   1.5, p);
+      rect(ctx, C.mooseAntler,  5.5, -9,   1,   1.5, p);
+    }
+  };
+
+  function drawAnimal(ctx, a, sx, sy) {
+    const k = kindOf(a);
+    const p = k.size / 13;
+    ctx.save();
+    if (a.dying) ctx.globalAlpha = Math.max(0, a.fade / CONFIG.actions.fadeTime);
+    ctx.translate(Math.round(sx), Math.round(sy));
+    ctx.fillStyle = C.shadow;
+    ctx.beginPath();
+    ctx.ellipse(2, 3, 4.5 * p, 7 * p, a.angle, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.rotate(a.angle);
+    drawBody[a.kind](ctx, p);
+    ctx.restore();
+    if (a.hits > 0 && !a.dying)
+      World.drawHitBar(ctx, sx, sy - k.size * 0.75 - 4, 1 - a.hits / k.hits);
+  }
+
+  function draw(ctx, camX, camY, viewW, viewH) {
+    list.forEach(a => {
+      const sx = a.x - camX, sy = a.y - camY;
+      if (sx < -60 || sy < -60 || sx > viewW + 60 || sy > viewH + 60) return;
+      drawAnimal(ctx, a, sx, sy);
+    });
+  }
+
+  return { init, update, draw, findNear, hit, blocksAt, save, load, list: () => list };
+})();
+</script>
+
+<!-- ============================================================
+     INVENTORY — the 10 hotbar slots and 20 backpack slots.
+     Slots 0–9 are the hotbar. Slots 10–29 are the backpack.
+     ============================================================ -->
+<script>
+const Inventory = (() => {
+  const H = CONFIG.inventory.hotbarSize, BP = CONFIG.inventory.backpackSize;
+  const slots = new Array(H + BP).fill(null);     // each slot: null or { id, n }
+  let selected = 0;
+  const listeners = [];
+
+  function maxStack(id) { return CONFIG.items[id].stack || CONFIG.inventory.stackSize; }
+  function changed() { listeners.forEach(f => f()); }
+
+  // Add items into slots from..to. Fills matching stacks first, then empty slots.
+  // Returns how many did NOT fit.
+  function addTo(id, n, from, to) {
+    for (let i = from; i < to && n > 0; i++) {
+      const s = slots[i];
+      if (s && s.id === id && s.n < maxStack(id)) { const m = Math.min(n, maxStack(id) - s.n); s.n += m; n -= m; }
+    }
+    for (let i = from; i < to && n > 0; i++)
+      if (!slots[i]) { const m = Math.min(n, maxStack(id)); slots[i] = { id, n: m }; n -= m; }
+    return n;
+  }
+  function add(id, n) { const left = addTo(id, n, 0, slots.length); changed(); return left; }
+
+  function canAdd(id) { return slots.some(s => !s || (s.id === id && s.n < maxStack(id))); }
+
+  function takeOne(i) {
+    const s = slots[i];
+    if (!s) return;
+    s.n -= 1;
+    if (s.n <= 0) slots[i] = null;
+    changed();
+  }
+
+  // The best value of a property (like tool power) among the items you carry.
+  function best(test, value) {
+    let v = 0;
+    slots.forEach(s => { if (s && test(CONFIG.items[s.id])) v = Math.max(v, value(CONFIG.items[s.id])); });
+    return v;
+  }
+
+  function select(i) { selected = i; changed(); }
+
+  function save() { return { slots: slots.map(s => s && { id: s.id, n: s.n }), selected }; }
+  function load(d) {
+    for (let i = 0; i < slots.length; i++) {
+      const s = d.slots[i];
+      slots[i] = s && CONFIG.items[s.id] ? { id: s.id, n: s.n } : null;
+    }
+    selected = d.selected || 0;
+    changed();
+  }
+
+  return { slots, add, addTo, canAdd, takeOne, maxStack, best, select, changed, save, load,
+           selected: () => selected, selectedItem: () => slots[selected],
+           onChange: f => listeners.push(f), H, BP };
+})();
+</script>
+
+<!-- ============================================================
+     CRAFTING — checks if the items in the crafting grid match a recipe.
+     Items can be anywhere in the grid, as long as the shape matches.
+     ============================================================ -->
+<script>
+const Crafting = (() => {
+  // Cut away empty rows and columns around the items.
+  function trim(cells, size) {
+    let r0 = size, r1 = -1, c0 = size, c1 = -1;
+    for (let r = 0; r < size; r++)
+      for (let c = 0; c < size; c++)
+        if (cells[r * size + c]) { r0 = Math.min(r0, r); r1 = Math.max(r1, r); c0 = Math.min(c0, c); c1 = Math.max(c1, c); }
+    if (r1 < 0) return null;
+    const rows = [];
+    for (let r = r0; r <= r1; r++) {
+      const row = [];
+      for (let c = c0; c <= c1; c++) row.push(cells[r * size + c] ? cells[r * size + c].id : null);
+      rows.push(row);
+    }
+    return rows;
+  }
+
+  // near = { campfire: true/false }
+  function match(cells, size, near) {
+    const g = trim(cells, size);
+    if (!g) return null;
+    return CONFIG.recipes.find(rc => {
+      if (rc.near && !near[rc.near]) return false;
+      const pat = rc.pattern;
+      if (pat.length !== g.length || pat[0].length !== g[0].length) return false;
+      for (let r = 0; r < pat.length; r++)
+        for (let c = 0; c < pat[r].length; c++) {
+          const ch = pat[r][c];
+          if ((ch === ' ' ? null : rc.key[ch]) !== g[r][c]) return false;
+        }
+      return true;
+    }) || null;
+  }
+
+  function needsTable(rc) { return rc.pattern.length > 2 || rc.pattern[0].length > 2; }
+
+  return { match, needsTable };
+})();
+</script>
+
+<!-- ============================================================
+     DROPS — items lying on the ground. Walk up to them to pick
+     them up (part of WORLD).
+     ============================================================ -->
+<script>
+const Drops = (() => {
+  const D = CONFIG.drops;
+  let list = [];
+
+  function spawn(item, amount, x, y) {
+    for (let i = 0; i < amount; i++)
+      list.push({ item, age: 0,
+        x: x + (Math.random() - 0.5) * D.spread * 2,
+        y: y + (Math.random() - 0.5) * D.spread * 2 });
+  }
+
+  function update(dt) {
+    const pl = Mechanics.player;
+    list.forEach(d => {
+      d.age += dt;
+      if (d.age < D.pickupDelay || !Inventory.canAdd(d.item)) return;   // full: it stays on the ground
+      const dist = Math.hypot(pl.x - d.x, pl.y - d.y);
+      if (dist <= D.pickupRadius) { Inventory.add(d.item, 1); d.taken = true; return; }
+      if (dist <= D.magnetRadius) {                 // slide gently toward the player
+        const step = Math.min(dist, D.magnetSpeed * dt);
+        d.x += (pl.x - d.x) / dist * step;
+        d.y += (pl.y - d.y) / dist * step;
+      }
+    });
+    list = list.filter(d => !d.taken);
+  }
+
+  function draw(ctx, camX, camY) {
+    list.forEach(d => {
+      const sx = Math.round(d.x - camX), sy = Math.round(d.y - camY);
+      const bob = Math.sin(d.age * 2) * 1.5;        // slow, small float
+      ctx.fillStyle = CONFIG.colors.shadow;
+      ctx.beginPath();
+      ctx.ellipse(sx, sy + D.size / 2, D.size / 2.5, D.size / 6, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.drawImage(Icons.canvas(d.item), sx - D.size / 2, Math.round(sy - D.size / 2 - bob), D.size, D.size);
+    });
+  }
+
+  function save() { return list.map(d => ({ item: d.item, x: Math.round(d.x), y: Math.round(d.y) })); }
+  function load(d) { list = d.filter(x => CONFIG.items[x.item]).map(x => ({ item: x.item, x: x.x, y: x.y, age: 0 })); }
+
+  return { spawn, update, draw, save, load };
+})();
+</script>
+
+<!-- ============================================================
+     TIME — day and night. One day = daytime + night.
+     ============================================================ -->
+<script>
+const Time = (() => {
+  const T = CONFIG.time;
+  const total = T.dayLength + T.nightLength;
+  let t = T.startTime, day = 1;
+
+  function update(dt) { t += dt; if (t >= total) { t -= total; day++; } }
+
+  // 0 = full day, 1 = full night. Changes slowly in the evening and the morning.
+  function nightAmount() {
+    const f = T.fadeLength;
+    let d;
+    if (t < f) d = 1 - t / f;                                   // morning
+    else if (t < T.dayLength - f) d = 0;                        // day
+    else if (t < T.dayLength) d = (t - (T.dayLength - f)) / f;  // evening
+    else d = 1;                                                 // night
+    return d * d * (3 - 2 * d);                                 // smooth
+  }
+
+  function isNight() { return t >= T.dayLength || t < T.fadeLength / 2; }
+  function canSleep() { return t >= T.dayLength - T.warnBefore || t < T.fadeLength / 2; }
+
+  function label() {
+    if (t < T.fadeLength) return 'Morning';
+    if (t < T.dayLength - T.warnBefore) return 'Daytime';
+    if (t < T.dayLength) return 'Night is coming';
+    if (t > total - T.warnBefore) return 'Morning soon';
+    return 'Night';
+  }
+
+  function sleepToMorning() {
+    if (t >= T.dayLength - T.warnBefore) day++;   // sleeping in the evening or night → next day
+    t = T.fadeLength;
+  }
+
+  return { update, nightAmount, isNight, canSleep, label, sleepToMorning,
+           fraction: () => t / total, dayFraction: () => T.dayLength / total, day: () => day,
+           save: () => ({ t, day }), load: d => { t = d.t; day = d.day; } };
+})();
+</script>
+
+<!-- ============================================================
+     MECHANICS — input, player movement, chopping, mining, hunting,
+     placing, eating, sleeping, health and hunger (SPEC 3).
+     ============================================================ -->
+<script>
+const Mechanics = (() => {
+  const P = CONFIG.player;
+  const ACT = CONFIG.actions;
+  const S = CONFIG.survival;
+  const C = CONFIG.colors;
+  const keys = new Set();      // keys held down now
+  const tapped = new Set();    // keys pressed since the last frame (so quick taps count)
+  const keyMap = {
+    ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', KeyS: 'down',
+    ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right',
+    KeyF: 'action', Space: 'jump', KeyQ: 'place', KeyR: 'use'
+  };
+
+  window.addEventListener('keydown', e => {
+    const k = keyMap[e.code];
+    if (k) { keys.add(k); if (!e.repeat) tapped.add(k); e.preventDefault(); }
+  });
+  window.addEventListener('keyup', e => {
+    const k = keyMap[e.code];
+    if (k) keys.delete(k);
+  });
+  window.addEventListener('blur', () => clearKeys());   // no stuck keys
+  function down(k) { return keys.has(k) || tapped.has(k); }
+  function clearKeys() { keys.clear(); tapped.clear(); }
+
+  const player = { x: 0, y: 0, angle: 0, targetAngle: 0, walkTime: 0, cooldown: 0, swing: 0, jump: 0 };
+  const survival = { health: S.maxHealth, hunger: S.maxHunger, hungerT: 0, starveT: 0, healT: 0 };
+  let home = null;             // where you wake up (last bed or tent you slept in)
+  let stats = freshStats();
+  function freshStats() { return { broke: {}, crafted: {}, placed: {}, ate: 0, slept: 0 }; }
+  function count(group, id) { stats[group][id] = (stats[group][id] || 0) + 1; }
+
+  function init() {
+    const s = World.spawnPoint();
+    player.x = s.x; player.y = s.y;
+  }
+
+  function canStand(x, y) {
+    const h = P.hitbox / 2;
+    if (World.isSolidAt(x - h, y - h) || World.isSolidAt(x + h, y - h) ||
+        World.isSolidAt(x - h, y + h) || World.isSolidAt(x + h, y + h)) return false;
+    return !Animals.blocksAt(x, y, h, null);
+  }
+
+  function facingPoint(dist) {
+    const a = player.targetAngle - Math.PI / 2;
+    return { x: player.x + Math.cos(a) * dist, y: player.y + Math.sin(a) * dist };
+  }
+
+  // The square next to you in the direction you face (up, down, left or right).
+  function frontTile(steps = 1) {
+    const a = player.targetAngle - Math.PI / 2;
+    const dx = Math.cos(a), dy = Math.sin(a);
+    const t = World.tileOf(player.x, player.y);
+    if (Math.abs(dx) >= Math.abs(dy)) t.tx += Math.sign(dx) * steps; else t.ty += Math.sign(dy) * steps;
+    return t;
+  }
+
+  function nearTable()    { return World.hasNear(player.x, player.y, 'table', CONFIG.crafting.tableReach); }
+  function nearCampfire() { return World.hasNear(player.x, player.y, 'campfire', CONFIG.crafting.campfireReach); }
+
+  function toolPower(tool) {
+    const best = Inventory.best(it => it.tool === tool, it => it.power);
+    return tool === 'axe' ? Math.max(CONFIG.tools.basicAxePower, best) : best;
+  }
+  function huntPower() {
+    return Math.max(CONFIG.tools.basicHuntPower, Inventory.best(it => it.hunt, it => it.hunt), toolPower('axe'));
+  }
+
+  // F: hit the animal or thing just in front of the player.
+  function useAxe() {
+    player.swing = ACT.swingTime;
+    player.cooldown = ACT.cooldown;
+    const r = facingPoint(ACT.reach);
+    const animal = Animals.findNear(r.x, r.y);
+    if (animal) {
+      const drops = Animals.hit(animal, huntPower());
+      if (drops) Object.entries(drops).forEach(([item, n]) => Drops.spawn(item, n, animal.x, animal.y));
+      return;
+    }
+    const target = World.breakableAt(r.x, r.y);
+    if (!target) return;
+    const power = toolPower(target.block.tool);
+    if (power === 0) { Hotbar.say('You need a pickaxe for this. Make one at a crafting table.'); return; }
+    const drops = World.hitBlock(target.tx, target.ty, power);
+    if (drops) {
+      count('broke', target.name);
+      const ts = CONFIG.world.tileSize;
+      Object.entries(drops).forEach(([item, n]) => Drops.spawn(item, n, (target.tx + 0.5) * ts, (target.ty + 0.5) * ts));
+    }
+  }
+
+  // Q: place the item in the chosen hotbar slot on the square in front of you.
+  function placeSelected() {
+    const s = Inventory.selectedItem();
+    if (!s) return 'Your hand is empty. Choose an item with a number key.';
+    const item = CONFIG.items[s.id];
+    if (!item.placeable) return `${item.name} can't be placed.`;
+    const ts = CONFIG.world.tileSize, h = P.hitbox / 2;
+    for (const steps of [1, 2]) {                // if you are too close, try one square further
+      const { tx, ty } = frontTile(steps);
+      const cx = (tx + 0.5) * ts, cy = (ty + 0.5) * ts;
+      const onPlayer = Math.abs(player.x - cx) < h + ts / 2 && Math.abs(player.y - cy) < h + ts / 2;
+      if (onPlayer || Animals.blocksAt(cx, cy, ts / 2, null)) continue;
+      if (World.place(tx, ty, item.placeable)) {
+        Inventory.takeOne(Inventory.selected());
+        count('placed', item.placeable);
+        return null;
+      }
+      break;
+    }
+    return 'No space here. Face open grass.';
+  }
+
+  // R: sleep if you face a bed or tent, otherwise eat the chosen food.
+  function use() {
+    const r = facingPoint(ACT.reach);
+    const f = frontTile(1);
+    const spots = [World.tileOf(r.x, r.y), f];
+    const bed = spots.find(t => { const b = World.blockAt(t.tx, t.ty); return b && b.sleep; });
+    if (bed) {
+      if (!Time.canSleep()) return 'You can only sleep in the evening or at night.';
+      home = { x: player.x, y: player.y };
+      stats.slept++;
+      Screens.sleep();
+      return null;
+    }
+    const s = Inventory.selectedItem();
+    const item = s && CONFIG.items[s.id];
+    if (item && item.food) {
+      if (survival.hunger >= S.maxHunger) return 'You are not hungry.';
+      survival.hunger = Math.min(S.maxHunger, survival.hunger + item.food);
+      survival.hungerT = 0;
+      Inventory.takeOne(Inventory.selected());
+      stats.ate++;
+      return `You ate ${item.name.toLowerCase()}.`;
+    }
+    return 'R eats food or sleeps. Choose food, or face a bed or tent.';
+  }
+
+  function updateSurvival(dt) {
+    const sv = survival;
+    sv.hungerT += dt;
+    if (sv.hungerT >= S.hungerEverySeconds) {
+      sv.hungerT = 0;
+      sv.hunger = Math.max(0, sv.hunger - 1);
+      if (sv.hunger === 3) Hotbar.say('You are getting hungry. Eat some food (R).');
+      if (sv.hunger === 0) Hotbar.say('You are starving! Eat now, or you lose hearts.');
+    }
+    if (sv.hunger === 0) {
+      sv.starveT += dt;
+      if (sv.starveT >= S.starveDamageEverySeconds) { sv.starveT = 0; sv.health = Math.max(0, sv.health - 1); }
+    } else sv.starveT = 0;
+    if (sv.hunger >= S.healWhenHungerAtLeast && sv.health < S.maxHealth) {
+      sv.healT += dt;
+      if (sv.healT >= S.healEverySeconds) { sv.healT = 0; sv.health++; }
+    } else sv.healT = 0;
+    if (sv.health <= 0) Screens.faint(home ? 'You wake up at your bed.' : 'You wake up at the start of the forest.');
+  }
+
+  function wakeUp() {
+    const p = home || World.spawnPoint();
+    player.x = p.x; player.y = p.y;
+    survival.health = S.maxHealth;
+    survival.hunger = S.wakeUpHunger;
+    survival.hungerT = survival.starveT = survival.healT = 0;
+  }
+
+  function update(dt) {
+    let dx = (keys.has('right') ? 1 : 0) - (keys.has('left') ? 1 : 0);
+    let dy = (keys.has('down') ? 1 : 0) - (keys.has('up') ? 1 : 0);
+    if (dx || dy) {
+      const len = Math.hypot(dx, dy);
+      dx /= len; dy /= len;
+      const step = P.speed * dt;
+      // Move one direction at a time so he slides along trees.
+      if (canStand(player.x + dx * step, player.y)) player.x += dx * step;
+      if (canStand(player.x, player.y + dy * step)) player.y += dy * step;
+      player.targetAngle = Math.atan2(dy, dx) + Math.PI / 2;
+      player.walkTime += dt;
+    }
+    // Turn smoothly toward the new direction.
+    let diff = player.targetAngle - player.angle;
+    diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+    player.angle += diff * Math.min(1, dt * P.turnSpeed);
+
+    player.cooldown = Math.max(0, player.cooldown - dt);
+    player.swing = Math.max(0, player.swing - dt);
+    if (down('action') && player.cooldown === 0) { useAxe(); tapped.delete('action'); }
+
+    // Space: a small, smooth jump (for fun; it does not go over trees).
+    player.jump = Math.max(0, player.jump - dt);
+    if (down('jump') && player.jump === 0) { player.jump = P.jumpTime; tapped.delete('jump'); }
+
+    if (tapped.has('place')) { const msg = placeSelected(); if (msg) Hotbar.say(msg); }
+    if (tapped.has('use'))   { const msg = use(); if (msg) Hotbar.say(msg); }
+
+    // Keep a tap of F or Space waiting if we are still in cooldown; forget the rest.
+    ['up', 'down', 'left', 'right', 'place', 'use'].forEach(k => tapped.delete(k));
+
+    updateSurvival(dt);
+  }
+
+  // Draw the lumberjack seen from above. He faces "up" before rotating.
+  function drawPlayer(ctx, sx, sy) {
+    const p = P.size / 13;
+    const swing = Math.sin(player.walkTime * 8) * p * 0.6;
+    const chop = Math.sin((player.swing / ACT.swingTime) * Math.PI) * 0.9;       // 0 → 0.9 → 0
+    const lift = Math.sin((player.jump / P.jumpTime) * Math.PI) * P.jumpHeight;  // 0 → top → 0
+    ctx.save();
+    ctx.translate(Math.round(sx), Math.round(sy));
+    // The shadow stays on the ground and gets a little smaller in the air.
+    const shrink = 1 - lift / (P.jumpHeight * 4);
+    ctx.fillStyle = C.shadow;
+    ctx.beginPath();
+    ctx.ellipse(2, 3, 7.5 * p * shrink, 5 * p * shrink, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.translate(0, -lift);
+    ctx.scale(1 + lift / 60, 1 + lift / 60);
+    ctx.rotate(player.angle);
+    // shoulders (plaid shirt)
+    ctx.fillStyle = C.shirt;      ctx.fillRect(-6 * p, -2.5 * p, 12 * p, 5 * p);
+    ctx.fillStyle = C.shirtDark;
+    ctx.fillRect(-4.5 * p, -2.5 * p, p, 5 * p);
+    ctx.fillRect(3.5 * p, -2.5 * p, p, 5 * p);
+    ctx.fillRect(-6 * p, 0, 12 * p, p);
+    // left hand
+    ctx.fillStyle = C.skin;
+    ctx.fillRect(-7 * p, -2 * p + swing, 2 * p, 2 * p);
+    // right hand with the axe (the axe swings gently when chopping)
+    ctx.save();
+    ctx.translate(6 * p, -1 * p - swing);
+    ctx.rotate(-chop);
+    ctx.fillStyle = C.skin;       ctx.fillRect(-1 * p, -1 * p, 2 * p, 2 * p);
+    ctx.fillStyle = C.axeHandle;  ctx.fillRect(-0.5 * p, -6 * p, p, 5 * p);
+    ctx.fillStyle = C.axeHead;    ctx.fillRect(0.5 * p, -6 * p, 2 * p, 2.5 * p);
+    ctx.restore();
+    // head (hair on top, forehead shows the front)
+    ctx.fillStyle = C.hair;       ctx.fillRect(-3 * p, -3 * p, 6 * p, 6 * p);
+    ctx.fillStyle = C.skin;       ctx.fillRect(-3 * p, -3 * p, 6 * p, 1.2 * p);
+    ctx.restore();
+  }
+
+  function save() {
+    return { x: Math.round(player.x), y: Math.round(player.y), angle: player.targetAngle,
+             health: survival.health, hunger: survival.hunger, home, stats };
+  }
+  function load(d) {
+    player.x = d.x; player.y = d.y; player.angle = player.targetAngle = d.angle || 0;
+    survival.health = d.health; survival.hunger = d.hunger;
+    home = d.home || null;
+    stats = Object.assign(freshStats(), d.stats || {});
+  }
+
+  return { init, update, drawPlayer, player, survival, clearKeys, nearTable, nearCampfire, wakeUp,
+           save, load, count, stats: () => stats };
+})();
+</script>
+
+<!-- ============================================================
+     ICONS — small pixel pictures for each item (16 x 16).
+     ============================================================ -->
+<script>
+const Icons = (() => {
+  const canvases = {}, urls = {};
+  function diag(color, x, y, n) {             // a diagonal line of 2x2 blocks
+    const out = [];
+    for (let i = 0; i < n; i++) out.push([color, x + i, y - i, 2, 2]);
+    return out;
+  }
+  const wood = '#7a5230', grey = '#9a9a95';
+  const art = {
+    wood:         [['#6e4a2c', 2, 2, 12, 12], ['#a47a4f', 4, 4, 8, 8], ['#6e4a2c', 6, 6, 4, 4], ['#a47a4f', 7, 7, 2, 2]],
+    planks:       [['#b88b56', 1, 3, 14, 10], ['#8a6437', 1, 6, 14, 1], ['#8a6437', 1, 9, 14, 1],
+                   ['#8a6437', 6, 3, 1, 3], ['#8a6437', 10, 7, 1, 2], ['#8a6437', 4, 10, 1, 3]],
+    sticks:       [...diag(wood, 2, 12, 9), ...diag('#9c7445', 6, 13, 8)],
+    stone:        [['#8a8a86', 3, 4, 10, 9], ['#a3a39e', 5, 5, 3, 3], ['#6f6f6b', 9, 9, 3, 3]],
+    coal:         [['#2e2e2e', 3, 4, 10, 9], ['#4a4a4a', 5, 5, 3, 3], ['#1f1f1f', 9, 9, 3, 3]],
+    wool:         [['#e9e4d8', 2, 3, 12, 10], ['#d6d0c1', 4, 5, 3, 3], ['#d6d0c1', 9, 8, 3, 3], ['#d6d0c1', 5, 10, 2, 2]],
+    meat:         [['#c9675b', 2, 4, 10, 8], ['#a9483f', 4, 6, 5, 4], ['#efe6d6', 11, 10, 3, 2], ['#efe6d6', 12, 9, 2, 4]],
+    cookedMeat:   [['#8a4a2a', 2, 4, 10, 8], ['#6e3a20', 4, 6, 5, 4], ['#b5703c', 3, 5, 2, 2], ['#efe6d6', 11, 10, 3, 2], ['#efe6d6', 12, 9, 2, 4]],
+    woodPickaxe:  [...diag(wood, 3, 12, 8), ['#b88b56', 4, 2, 7, 2], ['#b88b56', 10, 3, 3, 2], ['#b88b56', 12, 5, 2, 6]],
+    stonePickaxe: [...diag(wood, 3, 12, 8), [grey, 4, 2, 7, 2], [grey, 10, 3, 3, 2], [grey, 12, 5, 2, 6]],
+    stoneAxe:     [...diag(wood, 3, 13, 9), [grey, 8, 2, 4, 3], [grey, 11, 3, 3, 4], [grey, 9, 5, 2, 2]],
+    stoneSword:   [...diag('#b5b5b0', 5, 10, 8), [wood, 3, 10, 5, 2], [wood, 5, 8, 2, 5], [wood, 2, 13, 2, 2]],
+    table:        [['#6e4a2c', 1, 1, 14, 14], ['#b88b56', 2, 2, 12, 12], ['#8a6437', 6, 2, 1, 12],
+                   ['#8a6437', 10, 2, 1, 12], ['#8a6437', 2, 6, 12, 1], ['#8a6437', 2, 10, 12, 1]],
+    tent:         [['#d9ceb2', 7, 2, 2, 2], ['#d9ceb2', 6, 4, 4, 2], ['#d9ceb2', 5, 6, 6, 2], ['#d9ceb2', 4, 8, 8, 2],
+                   ['#d9ceb2', 3, 10, 10, 2], ['#d9ceb2', 2, 12, 12, 2], ['#4b3f30', 7, 9, 2, 5]],
+    bed:          [['#8a6437', 1, 6, 14, 7], ['#efe9dd', 2, 5, 4, 4], ['#b5463b', 6, 5, 8, 6],
+                   ['#8a6437', 1, 12, 2, 3], ['#8a6437', 13, 12, 2, 3]],
+    campfire:     [['#7a7a7a', 2, 12, 12, 2], [wood, 3, 10, 10, 2], ['#e8893a', 5, 4, 6, 6], ['#f2c14e', 7, 6, 2, 3]],
+    torch:        [[wood, 7, 6, 2, 9], ['#e8893a', 6, 2, 4, 4], ['#f2c14e', 7, 3, 2, 2]],
+    woodWall:     [['#a47a4f', 1, 1, 14, 14], [wood, 1, 5, 14, 1], [wood, 1, 10, 14, 1], [wood, 6, 1, 1, 4], [wood, 10, 6, 1, 4], [wood, 4, 11, 1, 4]],
+    stoneWall:    [['#8f8f8a', 1, 1, 14, 14], ['#666662', 1, 5, 14, 1], ['#666662', 1, 10, 14, 1], ['#666662', 5, 1, 1, 4], ['#666662', 10, 6, 1, 4], ['#666662', 6, 11, 1, 4]]
+  };
+  function canvas(id) {
+    if (canvases[id]) return canvases[id];
+    const c = document.createElement('canvas');
+    c.width = 16; c.height = 16;
+    const g = c.getContext('2d');
+    (art[id] || [['#999', 3, 3, 10, 10]]).forEach(([col, x, y, w, h]) => { g.fillStyle = col; g.fillRect(x, y, w, h); });
+    return (canvases[id] = c);
+  }
+  function get(id) { return urls[id] || (urls[id] = canvas(id).toDataURL()); }
+  function img(id, n) {
+    const name = CONFIG.items[id].name;
+    return `<img src="${get(id)}" alt="${name}" title="${name}">` + (n > 1 ? `<span class="count">${n}</span>` : '');
+  }
+  return { get, canvas, img };
+})();
+</script>
+
+<!-- ============================================================
+     HUD — hearts and roast chickens (top-left), the day/night clock
+     (right side), the goal, and the hotbar (bottom centre).
+     ============================================================ -->
+<script>
+const Hud = (() => {
+  const C = CONFIG.colors;
+  // Tiny pixel pictures: each letter is one colour, "." is empty.
+  const HEART = ['.XX.XX.', 'XoXXXXX', 'XXXXXXX', '.XXXXX.', '..XXX..', '...X...'];
+  const CHICKEN = ['....MM.', '...MoMM', '..MMMMM', '..MMMM.', '.B.MM..', 'B......', 'BB.....'];
+
+  function drawPixels(ctx, rows, x, y, scale, colors) {
+    rows.forEach((row, r) => [...row].forEach((ch, c) => {
+      if (ch === '.') return;
+      ctx.fillStyle = colors[ch];
+      ctx.fillRect(x + c * scale, y + r * scale, scale, scale);
+    }));
+  }
+
+  function box(ctx, x, y, w, h) {
+    ctx.fillStyle = 'rgba(28, 34, 26, 0.82)';
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(x, y, w, h, 8); else ctx.rect(x, y, w, h);
+    ctx.fill();
+  }
+
+  function drawBars(ctx) {
+    const S = CONFIG.survival, sv = Mechanics.survival;
+    const scale = 3, gap = 24, x0 = 26, y0 = 24;
+    box(ctx, 14, 14, gap * Math.max(S.maxHealth, S.maxHunger) + 16, 70);
+    const full = { X: C.heart, o: C.heartShine }, emptyH = { X: C.iconEmpty, o: C.iconEmpty };
+    for (let i = 0; i < S.maxHealth; i++)
+      drawPixels(ctx, HEART, x0 + i * gap, y0, scale, i < sv.health ? full : emptyH);
+    const food = { M: C.chicken, o: C.chickenShine, B: C.bone };
+    const emptyF = { M: C.iconEmpty, o: C.iconEmpty, B: C.iconEmpty };
+    for (let i = 0; i < S.maxHunger; i++)
+      drawPixels(ctx, CHICKEN, x0 + i * gap, y0 + 26, scale, i < sv.hunger ? food : emptyF);
+  }
+
+  // A round clock like in Minecraft: the day half and the night half turn slowly.
+  // The mark at the top shows the time now.
+  function drawClock(ctx, viewW) {
+    const w = 132, x = viewW - w - 14, y = 14, cx = x + w / 2, cy = y + 46, r = 32;
+    box(ctx, x, y, w, 132);
+    const dayArc = Time.dayFraction() * Math.PI * 2;
+    const turn = -Time.fraction() * Math.PI * 2 - Math.PI / 2;     // "now" points up
+    ctx.save();
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.clip();
+    ctx.translate(cx, cy); ctx.rotate(turn);
+    ctx.fillStyle = '#8cc4e8';                                     // day sky
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, r, 0, dayArc); ctx.fill();
+    ctx.fillStyle = '#1f2a4a';                                     // night sky
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, r, dayArc, Math.PI * 2); ctx.fill();
+    const sunA = dayArc / 2, moonA = dayArc + (Math.PI * 2 - dayArc) / 2;
+    ctx.fillStyle = '#f5d25a';                                     // sun
+    ctx.fillRect(Math.cos(sunA) * r * 0.6 - 7, Math.sin(sunA) * r * 0.6 - 7, 14, 14);
+    ctx.fillStyle = '#e8e4d0';                                     // moon
+    ctx.fillRect(Math.cos(moonA) * r * 0.6 - 6, Math.sin(moonA) * r * 0.6 - 6, 12, 12);
+    ctx.fillStyle = '#1f2a4a';
+    ctx.fillRect(Math.cos(moonA) * r * 0.6 - 2, Math.sin(moonA) * r * 0.6 - 6, 8, 8);
+    ctx.restore();
+    ctx.strokeStyle = '#c9b48a'; ctx.lineWidth = 4;               // frame
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = '#f1ede0';                                     // "now" mark
+    ctx.beginPath(); ctx.moveTo(cx - 6, cy - r - 8); ctx.lineTo(cx + 6, cy - r - 8); ctx.lineTo(cx, cy - r + 2); ctx.fill();
+    ctx.textAlign = 'center';
+    ctx.font = '600 16px system-ui, sans-serif';
+    ctx.fillText(`Day ${Time.day()}`, cx, y + 106);
+    ctx.font = '14px system-ui, sans-serif';
+    ctx.fillText(Time.label(), cx, y + 124);
+    ctx.textAlign = 'left';
+  }
+
+  function draw(ctx, viewW) { drawBars(ctx); drawClock(ctx, viewW); }
+
+  return { draw };
+})();
+
+// Goals: a small hint that shows what to try next.
+const Goals = (() => {
+  const el = document.getElementById('goal');
+  const got = (st, g, id) => (st[g][id] || 0) >= 1;
+  const list = [
+    ['Chop a tree: walk up to it and press F.',                        st => got(st, 'broke', 'tree')],
+    ['Press E. Put wood in the crafting grid to make planks.',         st => got(st, 'crafted', 'planks')],
+    ['Make a crafting table: 4 planks in a square.',                   st => got(st, 'crafted', 'table')],
+    ['Choose the table with a number key. Press Q to place it.',       st => got(st, 'placed', 'table')],
+    ['Stand by the table. Press E. Make sticks, then a wooden pickaxe.', st => got(st, 'crafted', 'woodPickaxe')],
+    ['Find grey rocks. Mine stone and coal with F.',                   st => got(st, 'broke', 'coal')],
+    ['Make a campfire (sticks, coal and wood) and place it with Q.',   st => got(st, 'placed', 'campfire')],
+    ['Hunt an animal. Cook the meat: press E next to the campfire.',   st => got(st, 'crafted', 'cookedMeat')],
+    ['Eat: choose food and press R.',                                  st => st.ate >= 1],
+    ['Make a tent or a bed and place it with Q.',                      st => got(st, 'placed', 'tent') || got(st, 'placed', 'bed')],
+    ['At night, face your bed or tent and press R to sleep.',          st => st.slept >= 1],
+    ['Make stone tools and build your base with walls.',               st => (got(st, 'crafted', 'stonePickaxe') || got(st, 'crafted', 'stoneAxe')) &&
+                                                                              (got(st, 'placed', 'woodWall') || got(st, 'placed', 'stoneWall'))]
+  ];
+  let last = '';
+  function update() {
+    const st = Mechanics.stats();
+    const g = list.find(([, done]) => !done(st));
+    const text = g ? 'Goal: ' + g[0] : 'Free play: build, explore and survive!';
+    if (text !== last) { el.textContent = text; last = text; }
+  }
+  return { update };
+})();
+
+const Hotbar = (() => {
+  const el = document.getElementById('hotbar');
+  const nameEl = document.getElementById('itemName');
+
+  function render() {
+    const sel = Inventory.selected();
+    let html = '';
+    for (let i = 0; i < Inventory.H; i++) {
+      const s = Inventory.slots[i];
+      html += `<div class="hslot ${i === sel ? 'sel' : ''}"><span class="num">${(i + 1) % 10}</span>${s ? Icons.img(s.id, s.n) : ''}</div>`;
+    }
+    el.innerHTML = html;
+  }
+
+  // Show a short text above the hotbar that fades out slowly.
+  function say(text) {
+    nameEl.textContent = text;
+    nameEl.classList.remove('show');
+    void nameEl.offsetWidth;          // restart the fade
+    nameEl.classList.add('show');
+  }
+
+  window.addEventListener('keydown', e => {
+    const m = e.code.match(/^Digit(\d)$/);
+    if (!m) return;
+    const i = m[1] === '0' ? 9 : +m[1] - 1;
+    if (i >= Inventory.H) return;
+    Inventory.select(i);
+    const s = Inventory.selectedItem();
+    say(s ? CONFIG.items[s.id].name : 'Empty slot');
+  });
+
+  Inventory.onChange(render);
+  return { render, say };
+})();
+</script>
+
+<!-- ============================================================
+     INVENTORY SCREEN — press E. Works like Minecraft:
+     - Click a slot to pick items up. Click another slot to put them down.
+     - Or drag: press on a slot, move, let go on another slot.
+     - Holding items, drag across several slots to share them out
+       (left button: share evenly, right button: one in each).
+     - Right-click: put down one, or pick up half a stack.
+     - Shift + click: move a stack between hotbar and backpack,
+       or craft as many as you can.
+     The game pauses while it is open.
+     ============================================================ -->
+<script>
+const InventoryScreen = (() => {
+  const screen = document.getElementById('invScreen');
+  const panel = document.getElementById('invPanel');
+  const book = document.getElementById('book');
+  const cursorEl = document.getElementById('cursorItem');
+  let open = false, gridSize = 2, grid = [], cursor = null, bookOpen = false, drag = null;
+  let near = { campfire: false };
+
+  const arrFor = area => area === 'inv' ? Inventory.slots : grid;
+  const max = id => Inventory.maxStack(id);
+  const isDragOver = (area, i) => drag && drag.mode === 'spread' && drag.visited.length > 1 &&
+                                  drag.visited.some(v => v.area === area && v.i === i);
+
+  function slot(area, i, item, extra = '') {
+    if (isDragOver(area, i)) extra += ' dragOver';
+    return `<div class="slot ${extra}" data-area="${area}" data-i="${i}">${item ? Icons.img(item.id, item.n) : ''}</div>`;
+  }
+
+  function render() {
+    const result = Crafting.match(grid, gridSize, near);
+    const inv = Inventory.slots, H = Inventory.H, sel = Inventory.selected();
+    let backpack = '', hotbar = '';
+    for (let i = H; i < inv.length; i++) backpack += slot('inv', i, inv[i]);
+    for (let i = 0; i < H; i++) hotbar += slot('inv', i, inv[i], i === sel ? 'sel' : '');
+    const title = (gridSize === 3 ? 'Crafting table' : 'Crafting') + (near.campfire ? ' · campfire nearby (you can cook)' : '');
+    panel.innerHTML = `
+      <div class="label">${title}</div>
+      <div class="craftArea">
+        <div class="craftGrid" style="grid-template-columns: repeat(${gridSize}, var(--slot))">
+          ${grid.map((s, i) => slot('grid', i, s)).join('')}
+        </div>
+        <div class="arrow">➜</div>
+        ${slot('result', 0, result ? { id: result.makes, n: result.amount } : null, 'big')}
+        <button class="book" data-book>${bookOpen ? 'Hide recipes' : 'Recipes'}</button>
+      </div>
+      ${gridSize === 2 ? '<div class="note">Stand next to a crafting table to get the big 3 × 3 grid.</div>' : ''}
+      <div class="label">Inventory</div>
+      <div class="slots">${backpack}</div>
+      <div class="slots hotrow">${hotbar}</div>
+      <div class="note">Click or drag to move items · Right-click: one item · Shift + click: quick move · E: close</div>`;
+    renderBook();
+    renderCursor();
+  }
+
+  // The recipe book shows the shape of every recipe.
+  function renderBook() {
+    book.classList.toggle('open', bookOpen);
+    if (!bookOpen) return;
+    book.innerHTML = '<div class="label">Recipes</div>' + CONFIG.recipes.map(rc => {
+      const cols = rc.pattern[0].length;
+      const cells = rc.pattern.join('').split('').map(ch =>
+        `<div class="rbCell">${ch === ' ' ? '' : `<img src="${Icons.get(rc.key[ch])}" title="${CONFIG.items[rc.key[ch]].name}" alt="">`}</div>`).join('');
+      const tag = rc.near ? 'next to a campfire' : Crafting.needsTable(rc) ? 'crafting table' : '';
+      return `<div class="rbRow">
+        <div class="rbGrid" style="grid-template-columns: repeat(${cols}, 20px)">${cells}</div>
+        <div class="rbOut">➜ <img src="${Icons.get(rc.makes)}" alt=""> ${rc.amount} ${CONFIG.items[rc.makes].name}
+          ${tag ? `<span class="rbTag">${tag}</span>` : ''}</div>
+      </div>`;
+    }).join('');
+  }
+
+  function renderCursor() {
+    cursorEl.style.display = cursor ? 'block' : 'none';
+    cursorEl.innerHTML = cursor ? Icons.img(cursor.id, cursor.n) : '';
+  }
+
+  // ----- Moving items -----
+  function pickUp(area, i, half) {
+    const arr = arrFor(area), s = arr[i];
+    if (!s) return;
+    if (!half) { cursor = s; arr[i] = null; return; }
+    const n = Math.ceil(s.n / 2);
+    cursor = { id: s.id, n }; s.n -= n;
+    if (s.n <= 0) arr[i] = null;
+  }
+
+  function putDown(area, i, one) {
+    const arr = arrFor(area), s = arr[i];
+    if (!cursor) return;
+    if (one) {
+      if (!s) { arr[i] = { id: cursor.id, n: 1 }; cursor.n--; }
+      else if (s.id === cursor.id && s.n < max(s.id)) { s.n++; cursor.n--; }
+    } else if (!s) { arr[i] = cursor; cursor = null; return; }
+    else if (s.id === cursor.id) { const m = Math.min(cursor.n, max(s.id) - s.n); s.n += m; cursor.n -= m; }
+    else { arr[i] = cursor; cursor = s; return; }                                     // swap
+    if (cursor.n <= 0) cursor = null;
+  }
+
+  function fits(area, i) {
+    const s = arrFor(area)[i];
+    return !s || (s.id === cursor.id && s.n < max(s.id));
+  }
+
+  // Share the items on the cursor across the slots you dragged over.
+  function spread(list, one) {
+    const targets = list.filter(v => fits(v.area, v.i));
+    if (!targets.length) return;
+    const per = one ? 1 : Math.max(1, Math.floor(cursor.n / targets.length));
+    for (const v of targets) {
+      if (!cursor) break;
+      const arr = arrFor(v.area), s = arr[v.i];
+      const m = Math.min(per, cursor.n, s ? max(s.id) - s.n : max(cursor.id));
+      if (m <= 0) continue;
+      if (s) s.n += m; else arr[v.i] = { id: cursor.id, n: m };
+      cursor.n -= m;
+      if (cursor.n <= 0) cursor = null;
+    }
+  }
+
+  // Shift + click: move a whole stack between the hotbar and the backpack.
+  function quickMove(i) {
+    const s = Inventory.slots[i];
+    if (!s) return;
+    Inventory.slots[i] = null;
+    const H = Inventory.H, total = Inventory.slots.length;
+    let left = i < H ? Inventory.addTo(s.id, s.n, H, total) : Inventory.addTo(s.id, s.n, 0, H);
+    if (left) left = Inventory.addTo(s.id, left, 0, total);
+    if (left) Inventory.slots[i] = { id: s.id, n: left };
+  }
+
+  // ----- Crafting -----
+  function useGrid() { grid.forEach((s, i) => { if (s) { s.n--; if (s.n <= 0) grid[i] = null; } }); }
+
+  function craftOnce() {
+    const rc = Crafting.match(grid, gridSize, near);
+    if (!rc) return;
+    if (cursor && (cursor.id !== rc.makes || cursor.n + rc.amount > max(rc.makes))) return;
+    if (cursor) cursor.n += rc.amount; else cursor = { id: rc.makes, n: rc.amount };
+    useGrid();
+    Mechanics.count('crafted', rc.makes);
+  }
+
+  // Shift + click on the result: craft as many as possible, straight into the inventory.
+  function craftAll() {
+    for (let k = 0; k < 64; k++) {
+      const rc = Crafting.match(grid, gridSize, near);
+      if (!rc) break;
+      useGrid();
+      Mechanics.count('crafted', rc.makes);
+      const left = Inventory.addTo(rc.makes, rc.amount, 0, Inventory.slots.length);
+      if (left) { const pl = Mechanics.player; Drops.spawn(rc.makes, left, pl.x, pl.y); break; }
+    }
+  }
+
+  function slotAt(x, y) {
+    const el = document.elementFromPoint(x, y);
+    const s = el && el.closest && el.closest('#invPanel .slot[data-area]');
+    return s ? { area: s.dataset.area, i: +s.dataset.i } : null;
+  }
+
+  panel.addEventListener('mousedown', e => {
+    const el = e.target.closest('.slot[data-area]');
+    if (!el) {
+      if (e.target.closest('[data-book]')) { bookOpen = !bookOpen; render(); }
+      return;
+    }
+    e.preventDefault();
+    const area = el.dataset.area, i = +el.dataset.i, right = e.button === 2;
+    if (area === 'result') { e.shiftKey ? craftAll() : craftOnce(); }
+    else if (e.shiftKey && !cursor && area === 'inv') quickMove(i);
+    else if (!cursor) { pickUp(area, i, right); if (cursor) drag = { mode: 'carry', area, i }; }
+    else drag = { mode: 'spread', one: right, visited: [{ area, i }] };
+    Inventory.changed();
+    render();
+  });
+
+  window.addEventListener('mousemove', e => {
+    cursorEl.style.left = e.clientX + 'px';
+    cursorEl.style.top = e.clientY + 'px';
+    if (!drag || drag.mode !== 'spread' || !cursor) return;
+    const s = slotAt(e.clientX, e.clientY);
+    if (!s || s.area === 'result') return;
+    if (drag.visited.some(v => v.area === s.area && v.i === s.i)) return;
+    if (!fits(s.area, s.i) || drag.visited.length >= cursor.n) return;
+    drag.visited.push(s);
+    render();
+  });
+
+  window.addEventListener('mouseup', e => {
+    if (!drag) return;
+    const d = drag;
+    drag = null;
+    const s = slotAt(e.clientX, e.clientY);
+    if (d.mode === 'carry') {
+      // Let go on a different slot = drop the items there.
+      if (s && s.area !== 'result' && !(s.area === d.area && s.i === d.i)) putDown(s.area, s.i, false);
+    } else if (d.visited.length === 1) putDown(d.visited[0].area, d.visited[0].i, d.one);
+    else spread(d.visited, d.one);
+    Inventory.changed();
+    render();
+  });
+
+  screen.addEventListener('contextmenu', e => e.preventDefault());
+
+  function show() {
+    open = true;
+    Mechanics.clearKeys();
+    gridSize = Mechanics.nearTable() ? 3 : 2;
+    near = { campfire: Mechanics.nearCampfire() };
+    grid = new Array(gridSize * gridSize).fill(null);
+    cursor = null; drag = null;
+    render();
+    screen.classList.add('open');
+  }
+
+  // Items left in the grid or on the cursor go back to the inventory
+  // (or onto the ground if there is no space).
+  function close() {
+    const back = grid.filter(Boolean);
+    if (cursor) back.push(cursor);
+    const pl = Mechanics.player;
+    back.forEach(s => { const left = Inventory.add(s.id, s.n); if (left) Drops.spawn(s.id, left, pl.x, pl.y); });
+    grid = []; cursor = null; drag = null;
+    renderCursor();
+    open = false;
+    Mechanics.clearKeys();
+    screen.classList.remove('open');
+    Inventory.changed();
+  }
+
+  window.addEventListener('keydown', e => {
+    if (e.repeat) return;
+    if (e.code === 'KeyE' && !Screens.busy()) { e.preventDefault(); open ? close() : show(); }
+    else if (e.code === 'Escape' && open) close();
+  });
+
+  return { isOpen: () => open, close };
+})();
+</script>
+
+<!-- ============================================================
+     SCREENS — help (H), sleeping (slow fade), fainting, new world.
+     ============================================================ -->
+<script>
+const Screens = (() => {
+  const help = document.getElementById('help');
+  const helpToggle = document.getElementById('helpToggle');
+  const fade = document.getElementById('fade');
+  const faintBox = document.getElementById('faint');
+  let sleeping = false, fainted = false;
+
+  function setHelp(on) {
+    help.classList.toggle('open', on);
+    helpToggle.textContent = on ? 'H: hide controls' : 'H: show controls';
+  }
+  window.addEventListener('keydown', e => {
+    if (e.code === 'KeyH' && !e.repeat) setHelp(!help.classList.contains('open'));
+    if ((e.code === 'Enter' || e.code === 'Space') && fainted) { e.preventDefault(); wake(); }
+  });
+
+  // Sleep: the screen slowly goes dark, the night passes, then it slowly comes back.
+  function sleep() {
+    sleeping = true;
+    fade.classList.add('on');
+    setTimeout(() => {
+      Time.sleepToMorning();
+      Save.write();
+      fade.classList.remove('on');
+      setTimeout(() => { sleeping = false; Hotbar.say(`Good morning! Day ${Time.day()}.`); }, 1200);
+    }, 1800);
+  }
+
+  function faint(text) {
+    if (fainted) return;
+    fainted = true;
+    document.getElementById('faintText').textContent = 'You fainted from hunger. ' + text + ' You keep all your items.';
+    faintBox.classList.add('open');
+  }
+  function wake() {
+    if (!fainted) return;
+    fainted = false;
+    faintBox.classList.remove('open');
+    Mechanics.wakeUp();
+    Hotbar.say('Eat some food soon (choose it, press R).');
+  }
+  document.getElementById('wakeUp').addEventListener('click', wake);
+
+  // New world: ask once more before starting over.
+  const area = document.getElementById('newWorldArea');
+  area.addEventListener('click', e => {
+    if (e.target.id === 'newWorld') {
+      area.innerHTML = 'Start over? Your items will be gone.<br><button id="yesNew" class="danger">Yes, new world</button> <button id="noNew">No, keep playing</button>';
+    } else if (e.target.id === 'yesNew') {
+      Save.newWorld();
+    } else if (e.target.id === 'noNew') {
+      area.innerHTML = '<button id="newWorld" class="danger">Start a new world</button>';
+    }
+  });
+
+  return { sleep, faint, setHelp, busy: () => sleeping || fainted };
+})();
+</script>
+
+<!-- ============================================================
+     SAVE — the game saves itself in this browser and loads
+     when you come back.
+     ============================================================ -->
+<script>
+const Save = (() => {
+  const key = CONFIG.save.key;
+  const seedKey = key + '-next-seed';
+
+  function write() {
+    try {
+      localStorage.setItem(key, JSON.stringify({
+        version: 1, world: World.save(), animals: Animals.save(), drops: Drops.save(),
+        player: Mechanics.save(), inventory: Inventory.save(), time: Time.save()
+      }));
+    } catch (e) { /* saving is not possible here; the game still works */ }
+  }
+
+  function read() {
+    try { const s = localStorage.getItem(key); return s ? JSON.parse(s) : null; } catch (e) { return null; }
+  }
+
+  function nextSeed() {
+    try { const s = localStorage.getItem(seedKey); if (s) return +s; } catch (e) {}
+    return CONFIG.world.seed;
+  }
+
+  function newWorld() {
+    try {
+      localStorage.removeItem(key);
+      localStorage.setItem(seedKey, String(Math.floor(Math.random() * 1e9)));
+    } catch (e) {}
+    location.reload();
+  }
+
+  window.addEventListener('beforeunload', write);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) write(); });
+
+  return { write, read, nextSeed, newWorld };
+})();
+</script>
+
+<!-- ============================================================
+     GAME — starts everything, runs the loop, keeps the camera
+     centred on the player (SPEC 2), and draws the night.
+     ============================================================ -->
+<script>
+const Game = (() => {
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const dark = document.createElement('canvas');     // the night layer, with holes for lights
+  const dctx = dark.getContext('2d');
+  let viewW = 0, viewH = 0, dpr = 1, lastTime = 0, saveTimer = 0;
+
+  function resize() {
+    dpr = window.devicePixelRatio || 1;
+    viewW = window.innerWidth; viewH = window.innerHeight;
+    canvas.width = dark.width = Math.floor(viewW * dpr);
+    canvas.height = dark.height = Math.floor(viewH * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    dctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+  }
+
+  function drawNight(camX, camY) {
+    const amount = Time.nightAmount() * CONFIG.time.maxDarkness;
+    if (amount < 0.01) return;
+    dctx.globalCompositeOperation = 'source-over';
+    dctx.clearRect(0, 0, viewW, viewH);
+    dctx.fillStyle = `rgba(${CONFIG.colors.night}, ${amount})`;
+    dctx.fillRect(0, 0, viewW, viewH);
+    dctx.globalCompositeOperation = 'destination-out';
+    const pl = Mechanics.player;
+    const lights = World.lights(camX, camY, viewW, viewH);
+    lights.push({ x: pl.x - camX, y: pl.y - camY, r: CONFIG.player.light });
+    lights.forEach(l => {
+      const g = dctx.createRadialGradient(l.x, l.y, 0, l.x, l.y, l.r);
+      g.addColorStop(0, 'rgba(0,0,0,1)');
+      g.addColorStop(0.55, 'rgba(0,0,0,0.75)');
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      dctx.fillStyle = g;
+      dctx.fillRect(l.x - l.r, l.y - l.r, l.r * 2, l.r * 2);
+    });
+    ctx.drawImage(dark, 0, 0, viewW, viewH);
+  }
+
+  function draw() {
+    const pl = Mechanics.player;
+    const camX = Math.round(pl.x - viewW / 2);
+    const camY = Math.round(pl.y - viewH / 2);
+    ctx.fillStyle = CONFIG.colors.outside;
+    ctx.fillRect(0, 0, viewW, viewH);
+    World.draw(ctx, camX, camY, viewW, viewH);
+    Animals.draw(ctx, camX, camY, viewW, viewH);
+    Drops.draw(ctx, camX, camY);
+    Mechanics.drawPlayer(ctx, pl.x - camX, pl.y - camY);
+    drawNight(camX, camY);
+    Hud.draw(ctx, viewW);
+  }
+
+  function frame(time) {
+    const dt = Math.min((time - lastTime) / 1000, CONFIG.game.maxFrameTime);
+    lastTime = time;
+    // The world pauses while the inventory is open, while sleeping, and after fainting.
+    if (!InventoryScreen.isOpen() && !Screens.busy()) {
+      Time.update(dt);
+      World.update(dt);
+      Animals.update(dt);
+      Mechanics.update(dt);
+      Drops.update(dt);
+      saveTimer += dt;
+      if (saveTimer >= CONFIG.save.everySeconds) { saveTimer = 0; Save.write(); }
+    }
+    Goals.update();
+    draw();
+    requestAnimationFrame(frame);
+  }
+
+  function start() {
+    const saved = Save.read();
+    let loaded = false;
+    if (saved && saved.version === 1) {
+      try {
+        World.load(saved.world);
+        Animals.load(saved.animals);
+        Drops.load(saved.drops || []);
+        Mechanics.load(saved.player);
+        Inventory.load(saved.inventory);
+        Time.load(saved.time);
+        loaded = true;
+      } catch (e) { loaded = false; }
+    }
+    if (!loaded) {
+      World.generate(Save.nextSeed());
+      Mechanics.init();
+      Animals.init();
+      Screens.setHelp(true);            // show the controls on the very first visit
+    }
+    Hotbar.render();
+    resize();
+    window.addEventListener('resize', resize);
+    requestAnimationFrame(t => { lastTime = t; frame(t); });
+  }
+
+  return { start };
+})();
+
+Game.start();
+</script>
+</body>
+</html>
