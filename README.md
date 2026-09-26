@@ -1,5 +1,7 @@
 # Woodland Survival Craft
 
+**▶ Play online: https://crisai2026.github.io/woodland-survival-craft/**
+
 A top-down 2D survival crafting game that runs in the browser, styled like Minecraft.
 You are a lumberjack in a forest: chop trees, hunt animals, mine stone and coal,
 craft tools, build a base and survive day and night.
@@ -9,7 +11,8 @@ no sounds, no sudden movements, and short literal messages.
 
 ## How to play
 
-Open `index.html` in any modern browser. No install, no internet needed.
+Play online with the link above, or open `index.html` in any modern browser.
+No install, no internet needed.
 
 | Key | What it does |
 |---|---|
@@ -22,7 +25,7 @@ Open `index.html` in any modern browser. No install, no internet needed.
 | E | Inventory and crafting |
 | H | Show or hide the controls |
 
-The game saves itself in the browser.
+The game saves itself in the browser (each browser has its own save).
 
 ## Files
 
