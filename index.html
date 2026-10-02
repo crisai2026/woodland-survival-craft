@@ -17,7 +17,7 @@
 
   /* Help (H) */
   #help { position: fixed; right: 14px; top: 160px; font-size: 15px; line-height: 1.6; padding: 6px 12px;
-          max-width: 300px; }
+          max-width: 300px; max-height: calc(100vh - 260px); overflow-y: auto; }
   #help .keys { display: none; }
   #help.open .keys { display: block; }
   #help b { color: #fff; }
@@ -27,7 +27,7 @@
   #help button.danger { background: #d9a79a; }
 
   /* ---------- Hotbar (always on screen) ---------- */
-  #hotbarWrap { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%);
+  #hotbarWrap { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 16;
                 display: flex; flex-direction: column; align-items: center; pointer-events: none; }
   #itemName { color: #f1ede0; font-size: 17px; font-weight: 600; min-height: 1.5em; margin-bottom: 4px;
               text-shadow: 0 1px 2px rgba(0,0,0,0.7); opacity: 0; text-align: center; }
@@ -80,6 +80,28 @@
   .rbCell img, .rbOut img { width: 20px; height: 20px; image-rendering: pixelated; display: block; }
   .rbOut { display: flex; align-items: center; gap: 4px; font-size: 13px; flex-wrap: wrap; }
   .rbTag { font-size: 11px; color: #6a5a2a; width: 100%; }
+  .rbRow.can { cursor: pointer; border-left: 4px solid #5f8f3f; padding-left: 6px; }
+  .rbRow.can:hover { background: #b9c9ad; }
+  .rbRow.cannot { opacity: 0.55; border-left: 4px solid transparent; padding-left: 6px; cursor: pointer; }
+  .rbStatus { font-size: 11px; width: 100%; }
+  .rbRow.can .rbStatus { color: #2f5a1f; font-weight: 600; }
+  .craftMsg { font-size: 14px; font-weight: 600; color: #2f4a22; min-height: 1.3em; margin: 4px 0 6px; }
+
+  /* Tent interior (press R facing your tent) */
+  #tentScreen { position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
+                background: rgba(15, 18, 14, 0.6); }
+  #tentScreen.open { display: flex; }
+  .tentPanel { background: #4a3a2c; color: #f1ede0; border-radius: 10px; padding: 14px 18px;
+               border: 3px solid #2e231a; width: min(640px, 94vw); box-sizing: border-box; }
+  .tentPanel h2 { margin: 0 0 8px; font-size: 20px; }
+  #tentCanvas { display: block; width: min(600px, 88vw); height: auto; border-radius: 6px;
+                image-rendering: pixelated; }
+  #tentStatus { min-height: 1.4em; margin: 10px 0 6px; font-size: 16px; }
+  .tentButtons { display: flex; gap: 8px; flex-wrap: wrap; }
+  .tentButtons button { font: inherit; font-size: 15px; padding: 7px 14px; cursor: pointer;
+                        background: #d8cfa8; color: #23271f; border: 0; border-radius: 6px; }
+  .tentButtons button:disabled { background: #7a6e5c; color: #3a3226; cursor: default; }
+  .tentNote { font-size: 13px; color: #d6ccb8; margin-top: 8px; }
 
   /* Sleep fade and faint message */
   #fade { position: fixed; inset: 0; background: #0b0f1a; opacity: 0; pointer-events: none;
@@ -88,6 +110,8 @@
   .dialog { position: fixed; left: 50%; top: 40%; transform: translate(-50%, -50%); display: none;
             padding: 18px 24px; font-size: 18px; text-align: center; max-width: 80vw; }
   .dialog.open { display: block; }
+  .dialog { z-index: 20; background: rgba(28, 34, 26, 0.97); border: 2px solid #5a6650; }
+  #tentScreen { z-index: 15; }
 </style>
 </head>
 <body>
@@ -100,9 +124,18 @@
     F: chop, mine, hunt, break<br>
     Space: jump<br>
     1 – 0: choose a hotbar slot<br>
-    Q: place (table, tent, bed, campfire, torch, wall)<br>
-    R: eat food · sleep in a bed or tent<br>
+    Q: place (table, tent, campfire, torch, wall)<br>
+    R (hold) or right mouse button: eat food<br>
+    R facing a campfire with raw meat: cook it<br>
+    R facing your tent: go inside and walk around (place your bed, sleep)<br>
+    With the rifle: F shoots, R reloads<br>
+    R facing a wolf with meat: tame it (3 times and it becomes your dog)<br>
     E: inventory and crafting<br>
+    Wolves and bears attack. A moose fights back if you hit it.<br>
+    <button id="peaceful"></button><br>
+    M: music on/off<br>
+    <button id="musicBtn"></button> <button id="soundBtn"></button><br>
+    Volume <input id="volume" type="range" min="0" max="100" style="vertical-align: middle; width: 140px"><br>
     <span id="newWorldArea"><button id="newWorld" class="danger">Start a new world</button></span><br>
   </div>
   <span id="helpToggle">H: show controls</span>
@@ -114,6 +147,20 @@
 </div>
 <div id="cursorItem"></div>
 <div id="fade"></div>
+<div id="tentScreen">
+  <div class="tentPanel">
+    <h2>Your tent</h2>
+    <canvas id="tentCanvas" width="600" height="400"></canvas>
+    <div id="tentStatus"></div>
+    <div class="tentButtons"><button id="tentLeave">Leave the tent</button></div>
+    <div class="tentNote">W A S D: walk · Q: place your bed or furnace · R: sleep or cook · F: take them back<br>
+      Walk out of the door (or press Esc) to leave. The world waits while you are inside.</div>
+  </div>
+</div>
+<div id="notice" class="dialog darkBox">
+  <p id="noticeText"></p>
+  <button id="noticeOk">OK</button>
+</div>
 <div id="faint" class="dialog darkBox">
   <p id="faintText">You fainted from hunger.</p>
   <button id="wakeUp">Wake up</button>
@@ -133,6 +180,9 @@ const CONFIG = {
     rockGroups: 34,        // how many groups of grey rocks
     rockGroupSize: 2,      // how wide a rock group is (in tiles)
     coalChance: 0.3,       // 0 to 1: how many rocks have coal in them
+    ironChance: 0.15,      // 0 to 1: how many rocks have iron in them
+    minIron: 30,           // the world always has at least this many iron rocks
+    ironNearStart: 3,      // iron rocks kept within reach of the start (6–12 squares away)
     clearingRadius: 4,     // open space (in tiles) around the start
     borderThickness: 2,    // rows of trees around the edge (these cannot be chopped)
     regrowEvery: 20,       // seconds: a new tree grows somewhere far away
@@ -178,9 +228,11 @@ const CONFIG = {
     tree:      { hits: 3, tool: 'axe',     drops: { wood: 1 },      solid: true,  natural: true },
     stone:     { hits: 4, tool: 'pickaxe', drops: { stone: 1 },     solid: true,  natural: true },
     coal:      { hits: 5, tool: 'pickaxe', drops: { coal: 1 },      solid: true,  natural: true },
+    iron:      { hits: 6, tool: 'pickaxe', drops: { iron: 1 },      solid: true,  natural: true,
+                 minPower: 2 },     // needs a stone pickaxe (power 2) or better
     table:     { hits: 2, tool: 'axe',     drops: { table: 1 },     solid: true },
-    tent:      { hits: 2, tool: 'axe',     drops: { tent: 1 },      solid: true,  sleep: true },
-    bed:       { hits: 2, tool: 'axe',     drops: { bed: 1 },       solid: true,  sleep: true },
+    tent:      { hits: 2, tool: 'axe',     drops: { tent: 1 },      solid: true,  enter: true },
+    bed:       { hits: 2, tool: 'axe',     drops: { bed: 1 },       solid: true,  sleep: true },  // only beds from old saves
     campfire:  { hits: 2, tool: 'axe',     drops: { campfire: 1 },  solid: true,  light: 180 },
     torch:     { hits: 1, tool: 'axe',     drops: { torch: 1 },     solid: false, light: 120 },
     woodWall:  { hits: 3, tool: 'axe',     drops: { woodWall: 1 },  solid: true },
@@ -195,16 +247,35 @@ const CONFIG = {
     restTimeMin: 1, restTimeMax: 4,   // seconds standing still
     turnSpeed: 4,          // how quickly an animal turns
     respawnEvery: 15,      // seconds: a new animal appears far away if there are too few
-    // hits = F presses with the basic axe. nearStart = how many start close to you.
+    // Attacks (wolves, bears, and a moose you hit). You walk faster than all of them.
+    noticeRadius: 220,     // pixels: a hunter notices you when you are this close
+    alertTime: 1,          // seconds a "!" shows before an animal comes toward you
+    giveUpDistance: 320,   // pixels: an attacking animal stops if you get this far away
+    biteEvery: 1.5,        // seconds between bites
+    // Taming: feed a wolf meat (R) this many times and it becomes your dog.
+    taming: { feedsNeeded: 3, petSpeed: 165, followDistance: 70, teleportDistance: 900 },
+    // Food chain: the bigger the animal, the more hits it takes and the more meat it gives.
+    // hits = F presses with the basic axe.  behavior: 'calm', 'hunter' (attacks you),
+    // 'defends' (attacks only if you hit it first).  damage = hearts lost per bite.
+    // nearStart = how many start close to you.  minStartDistance = squares from the start.
     kinds: {
-      rabbit: { name: 'Rabbit', count: 10, nearStart: 2, hits: 1, drops: { meat: 1 },
-                speed: 50, size: 16, hitbox: 12 },
-      deer:   { name: 'Deer',   count: 8,  nearStart: 1, hits: 4, drops: { meat: 4 },
-                speed: 40, size: 26, hitbox: 18 },
-      sheep:  { name: 'Sheep',  count: 10, nearStart: 3, hits: 5, drops: { wool: 2, meat: 1 },
-                speed: 30, size: 26, hitbox: 20 },
-      moose:  { name: 'Moose',  count: 4,  nearStart: 0, hits: 8, drops: { meat: 8 },
-                speed: 30, size: 36, hitbox: 28 }
+      rabbit: { name: 'Rabbit', count: 10, nearStart: 2, hits: 1,  drops: { meat: 1 },
+                speed: 50, size: 16, hitbox: 12, behavior: 'calm' },
+      fox:    { name: 'Fox',    count: 6,  nearStart: 1, hits: 2,  drops: { meat: 2 },
+                speed: 45, size: 20, hitbox: 14, behavior: 'calm' },
+      wolf:   { name: 'Wolf',   count: 5,  nearStart: 0, hits: 3,  drops: { meat: 3 },
+                speed: 45, size: 26, hitbox: 18, behavior: 'hunter',
+                chaseSpeed: 100, damage: 1, minStartDistance: 14 },
+      deer:   { name: 'Deer',   count: 8,  nearStart: 1, hits: 4,  drops: { meat: 4 },
+                speed: 40, size: 26, hitbox: 18, behavior: 'calm' },
+      sheep:  { name: 'Sheep',  count: 10, nearStart: 3, hits: 5,  drops: { wool: 2, meat: 1 },
+                speed: 30, size: 26, hitbox: 20, behavior: 'calm' },
+      moose:  { name: 'Moose',  count: 4,  nearStart: 0, hits: 8,  drops: { meat: 8 },
+                speed: 30, size: 36, hitbox: 28, behavior: 'defends',
+                chaseSpeed: 95, damage: 2 },
+      bear:   { name: 'Bear',   count: 3,  nearStart: 0, hits: 12, drops: { meat: 12 },
+                speed: 30, size: 40, hitbox: 30, behavior: 'hunter',
+                chaseSpeed: 90, damage: 2, minStartDistance: 18 }
     }
   },
   drops: {
@@ -220,6 +291,29 @@ const CONFIG = {
     backpackSize: 20,      // extra slots you see when you press E
     stackSize: 64          // most items stack up to this many in one slot
   },
+  rifle: {
+    shots: 6,              // shots in the rifle before you must reload
+    reloadTime: 1.5,       // seconds to reload (a small bar shows it)
+    power: 4,              // one shot = 4 axe hits (wolf: 1 shot, bear: 3 shots)
+    range: 320,            // pixels a shot can travel. Trees, rocks and walls stop it.
+    cooldown: 0.6,         // seconds between shots
+    lineTime: 0.3          // seconds the thin shot line stays (no flash)
+  },
+  furnace: {
+    cookTime: 6,           // seconds for one piece of meat (one at a time, like Minecraft)
+    piecesPerCoal: 4,      // one coal cooks this many pieces
+    maxPieces: 8           // raw meat that fits in the furnace
+  },
+  easter: {
+    minDistanceFromStart: 26,   // squares: the secret is far from the start
+    fireflyCount: 30,
+    fireflyTime: 10             // seconds the fireflies stay
+  },
+  food: {
+    eatTime: 1.5,          // seconds you hold R (or the right mouse button) to eat
+    cookTime: 10,          // seconds for raw meat to cook on a campfire
+    campfireSlots: 4       // pieces of meat that fit on one campfire
+  },
   crafting: {
     tableReach: 80,        // pixels: stand this close to a crafting table for the 3 x 3 grid
     campfireReach: 80      // pixels: stand this close to a campfire to cook
@@ -233,16 +327,21 @@ const CONFIG = {
     sticks:       { name: 'Sticks' },
     stone:        { name: 'Stone' },
     coal:         { name: 'Coal' },
+    iron:         { name: 'Iron' },
+    ammo:         { name: 'Ammo' },
     wool:         { name: 'Wool' },
-    meat:         { name: 'Raw meat',    food: 2 },
+    meat:         { name: 'Raw meat',    food: 2, cooksInto: 'cookedMeat' },
     cookedMeat:   { name: 'Cooked meat', food: 5 },
     woodPickaxe:  { name: 'Wooden pickaxe', stack: 1, tool: 'pickaxe', power: 1 },
     stonePickaxe: { name: 'Stone pickaxe',  stack: 1, tool: 'pickaxe', power: 2 },
     stoneAxe:     { name: 'Stone axe',      stack: 1, tool: 'axe',     power: 2 },
     stoneSword:   { name: 'Stone sword',    stack: 1, hunt: 2 },
+    rifle:        { name: 'Hunting rifle',  stack: 1, gun: true },
     table:        { name: 'Crafting table', placeable: 'table' },
     tent:         { name: 'Tent',           placeable: 'tent' },
-    bed:          { name: 'Bed',            placeable: 'bed' },
+    bed:          { name: 'Bed',            insideTent: true },     // goes inside your tent, not outside
+    furnace:      { name: 'Stone furnace',  insideTent: true },     // goes inside your tent, cooks with coal
+    goldenAxe:    { name: 'Golden axe',     stack: 1, tool: 'axe', power: 3 },   // a secret gift
     campfire:     { name: 'Campfire',       placeable: 'campfire' },
     torch:        { name: 'Torch',          placeable: 'torch' },
     woodWall:     { name: 'Wooden wall',    placeable: 'woodWall' },
@@ -250,7 +349,7 @@ const CONFIG = {
   },
   // Recipes, drawn like the crafting grid. A space means "leave this square empty".
   // Recipes wider or taller than 2 need the 3 x 3 grid (stand next to a crafting table).
-  // near: 'campfire' means you must stand next to a campfire.
+  // Cooking is not a recipe: put raw meat on a campfire (face it, press R).
   recipes: [
     { makes: 'planks',       amount: 4, pattern: ['W'],                 key: { W: 'wood' } },
     { makes: 'sticks',       amount: 4, pattern: ['P', 'P'],            key: { P: 'planks' } },
@@ -265,8 +364,16 @@ const CONFIG = {
     { makes: 'tent',         amount: 1, pattern: [' L ', 'LLL', 'K K'], key: { L: 'wool', K: 'sticks' } },
     { makes: 'bed',          amount: 1, pattern: ['LLL', 'PPP'],        key: { L: 'wool', P: 'planks' } },
     { makes: 'campfire',     amount: 1, pattern: [' K ', 'KCK', 'WWW'], key: { K: 'sticks', C: 'coal', W: 'wood' } },
-    { makes: 'cookedMeat',   amount: 1, pattern: ['M'],                 key: { M: 'meat' }, near: 'campfire' }
+    { makes: 'furnace',      amount: 1, pattern: ['SSS', 'S S', 'SSS'], key: { S: 'stone' } },
+    { makes: 'rifle',        amount: 1, pattern: ['III', 'PPK'],        key: { I: 'iron', P: 'planks', K: 'sticks' } },
+    { makes: 'ammo',         amount: 8, pattern: ['I', 'C'],            key: { I: 'iron', C: 'coal' } }
   ],
+  sound: {
+    volume: 0.5,           // 0 to 1: starting volume (the player can change it in the H box)
+    musicOn: false,        // music starts OFF; press M to turn it on
+    soundsOn: true,        // soft sounds for the axe, the rifle and the campfire
+    fireHearDistance: 260  // pixels: you hear a campfire when you are this close
+  },
   save: {
     key: 'woodland-survival-craft-save-v1',
     everySeconds: 15       // the game saves itself this often (in this browser)
@@ -279,7 +386,8 @@ const CONFIG = {
     grass: ['#6f9a4e', '#6b964b', '#73a052'],
     grassTuft: '#5f8a43',
     leaves: ['#3f7a3a', '#376d33', '#468541'],
-    rock: ['#8a8a86', '#7d7d79', '#979792'], coalSpot: '#2b2b2b',
+    rock: ['#8a8a86', '#7d7d79', '#979792'], coalSpot: '#2b2b2b', ironSpot: '#e8893a',
+    rifleBarrel: '#4a4d50', rifleStock: '#6e4a2c', shotLine: 'rgba(241, 237, 224, 0.8)',
     treeShadow: 'rgba(20, 30, 15, 0.25)',
     shirt: '#b5463b', shirtDark: '#7f2e28',
     skin: '#e2b78d', hair: '#4b3526',
@@ -288,6 +396,11 @@ const CONFIG = {
     rabbit: '#a08c78', rabbitEar: '#c8b6a2', rabbitTail: '#f2ede4',
     sheepWool: '#ecE8dc', sheepWoolShade: '#d3cdbf', sheepHead: '#5a544c', sheepLeg: '#4a453e',
     moose: '#5a3e2a', mooseDark: '#3f2b1d', mooseAntler: '#c9b48a',
+    fox: '#c8743a', foxLight: '#f0e6d8', foxDark: '#3a2a20',
+    wolf: '#8a8d8f', wolfDark: '#64676a', wolfLight: '#c9cbcc',
+    bear: '#4a3324', bearDark: '#3a281b', bearSnout: '#8a6a4a',
+    alertBox: '#f1ede0', alertText: '#2b2b2b', collar: '#c0392b', heart2: '#e0605a',
+    mushroomCap: '#c0392b', mushroomDot: '#f1ede0', mushroomStem: '#e9e4d8', gold: '#e8c547',
     tableTop: '#b88b56', tableEdge: '#6e4a2c', tableLine: '#8a6437',
     tentCloth: '#d9ceb2', tentShade: '#b9ad8f', tentPole: '#7a5230', tentDoor: '#4b3f30',
     bedFrame: '#8a6437', bedPillow: '#efe9dd', bedBlanket: '#b5463b',
@@ -327,6 +440,9 @@ const World = (() => {
   const GRASS = 0, TREE = TILES.tree;
   let tiles, seed = W.seed, wantedTrees = 0, regrowTimer = 0;
   let damage = new Map();     // tile index -> damage taken
+  let cooking = new Map();    // campfire tile index -> [seconds cooked, ...] for each piece of meat
+  let tents = new Map();      // tent tile index -> { bed, furnace } (what is inside each tent)
+  let ring = null;            // a secret...
   let fading = [];            // broken things slowly disappearing
 
   // Small repeatable random number generator (same seed = same forest).
@@ -368,7 +484,9 @@ const World = (() => {
         for (let x = gx - size; x <= gx + size; x++) {
           if (x < 0 || y < 0 || x >= W.width || y >= W.height || isBorder(x, y) || nearStart(x, y, 1)) continue;
           if (Math.hypot(x - gx, y - gy) > size + 0.3 || rand() < 0.35) continue;
-          tiles[y * W.width + x] = rand() < W.coalChance ? TILES.coal : TILES.stone;
+          const kind = rand();
+          tiles[y * W.width + x] = kind < W.coalChance ? TILES.coal
+                                 : kind < W.coalChance + W.ironChance ? TILES.iron : TILES.stone;
         }
     }
     // Make sure there is one small rock group near the start.
@@ -376,8 +494,10 @@ const World = (() => {
       const x = cx + 6 + i, y = cy - 3;
       tiles[y * W.width + x] = i === 1 ? TILES.coal : TILES.stone;
     }
+    ensureIron(makeRandom(seed + 5));
+    makeRing(makeRandom(seed + 9));
     wantedTrees = countTrees();
-    damage = new Map(); fading = [];
+    damage = new Map(); fading = []; cooking = new Map(); tents = new Map();
   }
 
   function countTrees() { let n = 0; for (const t of tiles) if (t === TREE) n++; return n; }
@@ -421,6 +541,23 @@ const World = (() => {
     damage.delete(i);
     tiles[i] = GRASS;
     fading.push({ tx, ty, name, time: CONFIG.actions.fadeTime });
+    // A bed inside a tent you break comes back too.
+    const inside = tents.get(i);
+    if (inside) {                              // everything inside a tent comes back too
+      tents.delete(i);
+      const back = Object.assign({}, B[name].drops);
+      if (inside.bed) back.bed = 1;
+      if (inside.furnace) {
+        back.furnace = 1;
+        if (inside.furnace.cooking.length) back.meat = inside.furnace.cooking.length;
+        if (inside.furnace.ready) back.cookedMeat = inside.furnace.ready;
+      }
+      return back;
+    }
+    // Meat still cooking on a campfire you break comes back as raw meat.
+    const pieces = cooking.get(i);
+    cooking.delete(i);
+    if (pieces && pieces.length) return Object.assign({}, B[name].drops, { meat: pieces.length });
     return B[name].drops;
   }
 
@@ -446,6 +583,16 @@ const World = (() => {
     return false;
   }
 
+  // Distance (pixels) to the nearest tile with this name within r, or Infinity.
+  function nearestDistance(px, py, name, r) {
+    const ts = W.tileSize, type = TILES[name];
+    let best = Infinity;
+    for (let ty = Math.floor((py - r) / ts); ty <= Math.floor((py + r) / ts); ty++)
+      for (let tx = Math.floor((px - r) / ts); tx <= Math.floor((px + r) / ts); tx++)
+        if (tileAt(tx, ty) === type) best = Math.min(best, Math.hypot((tx + 0.5) * ts - px, (ty + 0.5) * ts - py));
+    return best;
+  }
+
   // No built things (walls, beds ...) close to this tile?
   function nothingBuiltNear(tx, ty, r) {
     for (let y = ty - r; y <= ty + r; y++)
@@ -469,13 +616,98 @@ const World = (() => {
     return null;
   }
 
+  function tentData(tx, ty) {
+    const i = ty * W.width + tx;
+    if (!tents.has(i)) tents.set(i, { bed: false, furnace: null });
+    return tents.get(i);
+  }
+  function tentHasBed(tx, ty) { const d = tents.get(ty * W.width + tx); return !!(d && d.bed); }
+  function setTentBed(tx, ty, on) { tentData(tx, ty).bed = on; }
+  // Stone furnaces inside tents cook one piece of meat at a time (also while you are away).
+  function cookFurnaces(dt) {
+    tents.forEach(d => {
+      const f = d.furnace;
+      if (!f || !f.cooking.length) return;
+      f.cooking[0] += dt;
+      if (f.cooking[0] >= CONFIG.furnace.cookTime) { f.cooking.shift(); f.ready++; Mechanics.cooked(); }
+    });
+  }
+
+  // The secret: a ring of mushrooms far away in the forest.
+  function makeRing(rand) {
+    const start = spawnPoint(), ts = W.tileSize;
+    for (let tries = 0; tries < 3000; tries++) {
+      const tx = 6 + Math.floor(rand() * (W.width - 12)), ty = 6 + Math.floor(rand() * (W.height - 12));
+      if (Math.hypot((tx + 0.5) * ts - start.x, (ty + 0.5) * ts - start.y) < CONFIG.easter.minDistanceFromStart * ts) continue;
+      if (!nothingBuiltNear(tx, ty, 3)) continue;
+      for (let y = ty - 2; y <= ty + 2; y++) for (let x = tx - 2; x <= tx + 2; x++) tiles[y * W.width + x] = GRASS;
+      ring = { tx, ty };
+      return;
+    }
+  }
+  function ringCenter() { return ring && { x: (ring.tx + 0.5) * W.tileSize, y: (ring.ty + 0.5) * W.tileSize }; }
+
+  // There is always enough iron: at least minIron rocks, and a few near the start.
+  // farFrom: a position new iron must stay away from (so nothing appears in front of you).
+  function ensureIron(rand, farFrom) {
+    const ts = W.tileSize, start = spawnPoint();
+    const far = (x, y) => !farFrom || Math.hypot((x + 0.5) * ts - farFrom.x, (y + 0.5) * ts - farFrom.y) > W.farAway;
+    const okGrass = (x, y) => tileAt(x, y) === GRASS && !isBorder(x, y) && nothingBuiltNear(x, y, 2) && far(x, y);
+    let count = 0, nearStart = 0;
+    for (let y = 0; y < W.height; y++) for (let x = 0; x < W.width; x++)
+      if (tiles[y * W.width + x] === TILES.iron) {
+        count++;
+        if (Math.hypot((x + 0.5) * ts - start.x, (y + 0.5) * ts - start.y) < 12 * ts) nearStart++;
+      }
+    // A few iron rocks 6–12 squares from the start.
+    for (let tries = 0; nearStart < W.ironNearStart && tries < 400; tries++) {
+      const a = rand() * Math.PI * 2, d = 6 + rand() * 6;
+      const x = Math.floor(start.x / ts + Math.cos(a) * d), y = Math.floor(start.y / ts + Math.sin(a) * d);
+      if (okGrass(x, y)) { tiles[y * W.width + x] = TILES.iron; nearStart++; count++; }
+    }
+    // Turn some stone rocks into iron.
+    for (let tries = 0; count < W.minIron && tries < 4000; tries++) {
+      const x = Math.floor(rand() * W.width), y = Math.floor(rand() * W.height);
+      if (tileAt(x, y) === TILES.stone && far(x, y)) { tiles[y * W.width + x] = TILES.iron; count++; }
+    }
+    // Still not enough? Small new iron rocks on empty grass.
+    for (let tries = 0; count < W.minIron && tries < 4000; tries++) {
+      const x = Math.floor(rand() * W.width), y = Math.floor(rand() * W.height);
+      if (okGrass(x, y)) { tiles[y * W.width + x] = TILES.iron; count++; }
+    }
+  }
+
+  // Put one piece of raw meat on a campfire. Returns false if it is full.
+  function addCooking(tx, ty) {
+    const i = ty * W.width + tx, list = cooking.get(i) || [];
+    if (list.length >= CONFIG.food.campfireSlots) return false;
+    list.push(0);
+    cooking.set(i, list);
+    return true;
+  }
+
   function update(dt) {
+    cookFurnaces(dt);
+    // Meat on campfires cooks slowly, then drops next to the fire as cooked meat.
+    cooking.forEach((list, i) => {
+      for (let k = list.length - 1; k >= 0; k--) {
+        list[k] += dt;
+        if (list[k] >= CONFIG.food.cookTime) {
+          list.splice(k, 1);
+          const tx = i % W.width, ty = Math.floor(i / W.width);
+          Drops.spawn('cookedMeat', 1, (tx + 0.5) * W.tileSize, (ty + 0.5) * W.tileSize);
+          Mechanics.cooked();
+        }
+      }
+      if (!list.length) cooking.delete(i);
+    });
     fading.forEach(f => f.time -= dt);
     fading = fading.filter(f => f.time > 0);
-    // Trees grow back slowly, far away from you.
+    // Trees grow back slowly, far away from you. Iron too, if there is not much left.
     regrowTimer += dt;
     if (regrowTimer >= W.regrowEvery) {
       regrowTimer = 0;
+      ensureIron(Math.random, Mechanics.player);
       if (countTrees() < wantedTrees) {
         const spot = randomFarGrass(Math.random);
         if (spot && nothingBuiltNear(spot.tx, spot.ty, 3) && !Animals.blocksAt(spot.x, spot.y, W.tileSize / 2, null))
@@ -495,6 +727,7 @@ const World = (() => {
         const b = blockAt(tx, ty);
         if (b && b.light) out.push({ x: (tx + 0.5) * ts - camX, y: (ty + 0.5) * ts - camY, r: b.light });
       }
+    if (ring) out.push({ x: (ring.tx + 0.5) * ts - camX, y: (ring.ty + 0.5) * ts - camY, r: 75 });
     return out;
   }
 
@@ -502,16 +735,32 @@ const World = (() => {
   function save() {
     let s = '';
     for (let i = 0; i < tiles.length; i++) s += String.fromCharCode(tiles[i]);
-    return { seed, tiles: btoa(s), wantedTrees };
+    // names: what each tile number means, so new kinds of blocks never mix up old saves.
+    return { seed, tiles: btoa(s), names: NAMES, wantedTrees, cooking: Array.from(cooking.entries()),
+             tents: Array.from(tents.entries()), ring };
   }
-  function load(d) {
+  // Tile numbers used by older saves that did not store names.
+  const OLD_NAMES = ['grass', 'tree', 'stone', 'coal', 'table', 'tent', 'bed', 'campfire', 'torch', 'woodWall', 'stoneWall'];
+  const IRON_NAMES = ['grass', 'tree', 'stone', 'coal', 'iron', 'table', 'tent', 'bed', 'campfire', 'torch', 'woodWall', 'stoneWall'];
+  function load(d, hasIron) {
     seed = d.seed;
     const s = atob(d.tiles);
     tiles = new Uint8Array(W.width * W.height);
     if (s.length !== tiles.length) throw new Error('world size changed');
-    for (let i = 0; i < s.length; i++) tiles[i] = s.charCodeAt(i);
+    const names = d.names || (hasIron ? IRON_NAMES : OLD_NAMES);
+    for (let i = 0; i < s.length; i++) {
+      const t = TILES[names[s.charCodeAt(i)]];
+      tiles[i] = t === undefined ? GRASS : t;
+    }
     wantedTrees = d.wantedTrees || countTrees();
     damage = new Map(); fading = [];
+    cooking = new Map(d.cooking || []);
+    tents = new Map(d.tents || []);
+    (d.tentBeds || []).forEach(i => { if (!tents.has(i)) tents.set(i, { bed: true, furnace: null }); });  // older saves
+    ring = d.ring || null;
+    if (!ring) makeRing(makeRandom(seed + 9));
+    // Older saves may have little or no iron: make sure there is enough.
+    ensureIron(makeRandom(seed + 5));
   }
 
   // Small bar that shows how many hits are left.
@@ -530,20 +779,21 @@ const World = (() => {
     ctx.fillRect(sx, sy, ts, ts);          // plain grass: no small marks (they looked like cobwebs)
   }
 
-  function drawBlocky(ctx, sx, sy, tx, ty, colors, pad, spots) {
+  function drawBlocky(ctx, sx, sy, tx, ty, colors, pad, spots, spotChance = 0.3) {
     const ts = W.tileSize, cells = 4, cs = (ts - pad * 2) / cells;
     ctx.fillStyle = C.treeShadow;
     ctx.fillRect(sx + pad + 4, sy + pad + 4, ts - pad * 2, ts - pad * 2);
     for (let cy = 0; cy < cells; cy++)
       for (let cx = 0; cx < cells; cx++) {
         const h = hash(tx * 4 + cx, ty * 4 + cy, 5);
-        ctx.fillStyle = spots && hash(tx * 4 + cx, ty * 4 + cy, 9) < 0.3 ? spots : colors[Math.floor(h * colors.length)];
+        ctx.fillStyle = spots && hash(tx * 4 + cx, ty * 4 + cy, 9) < spotChance ? spots : colors[Math.floor(h * colors.length)];
         ctx.fillRect(sx + pad + cx * cs, sy + pad + cy * cs, Math.ceil(cs), Math.ceil(cs));
       }
   }
   function drawTree(ctx, sx, sy, tx, ty)  { drawBlocky(ctx, sx, sy, tx, ty, C.leaves, 2); }
   function drawStone(ctx, sx, sy, tx, ty) { drawBlocky(ctx, sx, sy, tx, ty, C.rock, 4); }
   function drawCoal(ctx, sx, sy, tx, ty)  { drawBlocky(ctx, sx, sy, tx, ty, C.rock, 4, C.coalSpot); }
+  function drawIron(ctx, sx, sy, tx, ty)  { drawBlocky(ctx, sx, sy, tx, ty, C.rock, 4, C.ironSpot, 0.45); }  // big orange spots
 
   function drawTable(ctx, sx, sy) {
     const ts = W.tileSize, pad = 5;
@@ -623,7 +873,7 @@ const World = (() => {
   function drawStoneWall(ctx, sx, sy, tx, ty) { drawWall(ctx, sx, sy, tx, ty, C.stoneWall, C.stoneWallLine); }
 
   const drawTile = {
-    tree: drawTree, stone: drawStone, coal: drawCoal, table: drawTable, tent: drawTent,
+    tree: drawTree, stone: drawStone, coal: drawCoal, iron: drawIron, table: drawTable, tent: drawTent,
     bed: drawBed, campfire: drawCampfire, torch: drawTorch, woodWall: drawWoodWall, stoneWall: drawStoneWall
   };
 
@@ -641,11 +891,37 @@ const World = (() => {
         const t = tiles[ty * W.width + tx];
         if (t !== GRASS) drawTile[NAMES[t]](ctx, tx * ts - camX, ty * ts - camY, tx, ty);
       }
+    // The ring of mushrooms (they glow softly at night).
+    if (ring) {
+      const cx = (ring.tx + 0.5) * ts - camX, cy = (ring.ty + 0.5) * ts - camY;
+      if (cx > -100 && cy > -100 && cx < viewW + 100 && cy < viewH + 100) {
+        const glow = Time.nightAmount();
+        for (let i = 0; i < 8; i++) {
+          const a = i / 8 * Math.PI * 2, mx = Math.round(cx + Math.cos(a) * 46), my = Math.round(cy + Math.sin(a) * 46);
+          if (glow > 0.2) { ctx.fillStyle = `rgba(255, 160, 150, ${0.2 * glow})`; ctx.beginPath(); ctx.arc(mx, my, 13, 0, Math.PI * 2); ctx.fill(); }
+          ctx.fillStyle = C.mushroomStem; ctx.fillRect(mx - 2, my, 4, 6);
+          ctx.fillStyle = C.mushroomCap;  ctx.fillRect(mx - 6, my - 5, 12, 6);
+          ctx.fillStyle = C.mushroomDot;  ctx.fillRect(mx - 3, my - 4, 2, 2); ctx.fillRect(mx + 2, my - 3, 2, 2);
+        }
+      }
+    }
     // Broken things fade away slowly.
     fading.forEach(f => {
       ctx.globalAlpha = f.time / CONFIG.actions.fadeTime;
       drawTile[f.name](ctx, f.tx * ts - camX, f.ty * ts - camY, f.tx, f.ty);
       ctx.globalAlpha = 1;
+    });
+    // Meat on campfires: slowly changes from raw red to cooked brown (no flicker).
+    const raw = [0xc9, 0x67, 0x5b], done = [0x8a, 0x4a, 0x2a];
+    cooking.forEach((list, i) => {
+      const tx = i % W.width, ty = Math.floor(i / W.width);
+      const cx = tx * ts - camX + ts / 2, cy = ty * ts - camY + ts / 2;
+      list.forEach((t, k) => {
+        const f = Math.min(1, t / CONFIG.food.cookTime);
+        const c = raw.map((v, j) => Math.round(v + (done[j] - v) * f));
+        ctx.fillStyle = `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
+        ctx.fillRect(cx + (k % 2 ? 2 : -10), cy + (k < 2 ? -10 : 3), 8, 7);
+      });
     });
     // Hit bars on damaged things.
     damage.forEach((dmg, i) => {
@@ -656,13 +932,15 @@ const World = (() => {
   }
 
   return { generate, spawnPoint, isSolidAt, isBorder, tileAt, nameAt, blockAt, tileOf, breakableAt,
-           hitBlock, place, hasNear, update, draw, lights, drawHitBar, makeRandom, randomFarGrass,
+           hitBlock, place, hasNear, nearestDistance, addCooking, tentHasBed, setTentBed, tentData, cookFurnaces,
+           ringCenter, update, draw, lights, drawHitBar, makeRandom, randomFarGrass,
            save, load, TILES, GRASS, getSeed: () => seed };
 })();
 </script>
 
 <!-- ============================================================
-     ANIMALS — calm rabbits, deer, sheep and moose (part of WORLD).
+     ANIMALS — the food chain: rabbit, fox, wolf, deer, moose, bear,
+     plus sheep for wool (part of WORLD).
      ============================================================ -->
 <script>
 const Animals = (() => {
@@ -678,7 +956,9 @@ const Animals = (() => {
   function make(kind, x, y) {
     const angle = rand() * Math.PI * 2;
     return { kind, x, y, angle, targetAngle: angle, dx: 0, dy: 0, walking: false,
-             timer: between(A.restTimeMin, A.restTimeMax), hits: 0, dying: false, fade: 0 };
+             timer: between(A.restTimeMin, A.restTimeMax), hits: 0, dying: false, fade: 0,
+             mode: 'calm', alertT: 0, biteT: 0,       // mode: 'calm', 'alert' (shows "!") or 'chase'
+             tame: 0, pet: false, heartT: 0 };        // tame: times fed. pet: it is your dog
   }
 
   function init() {
@@ -695,7 +975,7 @@ const Animals = (() => {
         const x = (tx + 0.5) * W.tileSize, y = (ty + 0.5) * W.tileSize;
         const d = Math.hypot(x - spawn.x, y - spawn.y) / W.tileSize;
         // The first few of each kind start near you so you can see them.
-        if (made < k.nearStart ? (d < W.clearingRadius + 1 || d > 9) : d < W.clearingRadius + 2) continue;
+        if (made < k.nearStart ? (d < W.clearingRadius + 1 || d > 9) : d < (k.minStartDistance || W.clearingRadius + 2)) continue;
         const a = make(kind, x, y);
         if (!canStand(a, x, y)) continue;
         list.push(a);
@@ -706,9 +986,9 @@ const Animals = (() => {
   }
 
   // Does a living animal overlap this box? (skip = the animal asking)
-  function blocksAt(x, y, half, skip) {
+  function blocksAt(x, y, half, skip, ignorePets) {
     return list.some(a => {
-      if (a === skip || a.dying) return false;
+      if (a === skip || a.dying || (ignorePets && a.pet)) return false;
       const h = kindOf(a).hitbox / 2;
       return Math.abs(a.x - x) < half + h && Math.abs(a.y - y) < half + h;
     });
@@ -723,9 +1003,81 @@ const Animals = (() => {
     return !(Math.abs(pl.x - x) < h + ph && Math.abs(pl.y - y) < h + ph);
   }
 
+  // ----- Attacking (calm and fair: a "!" first, steady speed, you are faster) -----
+  function startAlert(a) {
+    a.mode = 'alert'; a.alertT = A.alertTime; a.biteT = A.biteEvery * 0.6; a.walking = false;
+  }
+  function face(a, pl) { a.targetAngle = Math.atan2(pl.y - a.y, pl.x - a.x) + Math.PI / 2; }
+  function moveToward(a, pl, step) {
+    const d = Math.hypot(pl.x - a.x, pl.y - a.y) || 1;
+    const dx = (pl.x - a.x) / d * step, dy = (pl.y - a.y) / d * step;
+    if (canStand(a, a.x + dx, a.y + dy)) { a.x += dx; a.y += dy; }
+    else if (canStand(a, a.x + dx, a.y)) a.x += dx;          // slide around trees
+    else if (canStand(a, a.x, a.y + dy)) a.y += dy;
+  }
+  function calmAll() { list.forEach(a => { a.mode = 'calm'; a.walking = false; }); }
+
   function update(dt) {
+    const pl = Mechanics.player;
+    const peaceful = Screens.peaceful();
     list.forEach(a => {
       if (a.dying) { a.fade -= dt; return; }
+      const k = kindOf(a);
+      const dist = Math.hypot(pl.x - a.x, pl.y - a.y);
+      a.heartT = Math.max(0, a.heartT - dt);
+      if (peaceful || a.pet || a.tame > 0) a.mode = 'calm';     // a wolf you have fed never attacks you
+      // Hunters notice you when you come close.
+      if (!peaceful && k.behavior === 'hunter' && !(a.tame > 0) && a.mode === 'calm' && dist < A.noticeRadius) startAlert(a);
+      // Far enough away: the animal gives up and becomes calm again.
+      if (a.mode !== 'calm' && dist > A.giveUpDistance) {
+        a.mode = 'calm'; a.walking = false; a.timer = between(A.restTimeMin, A.restTimeMax);
+      }
+      if (a.mode === 'alert') {
+        face(a, pl);
+        a.alertT -= dt;
+        if (a.alertT <= 0) a.mode = 'chase';
+      } else if (a.mode === 'chase') {
+        face(a, pl);
+        const reach = (k.hitbox + CONFIG.player.hitbox) / 2 * 1.42 + 6;
+        if (dist > reach) moveToward(a, pl, k.chaseSpeed * dt);
+        else {
+          a.biteT -= dt;
+          if (a.biteT <= 0) { a.biteT = A.biteEvery; Mechanics.hurt(k.damage, k.name); }
+        }
+      } else if (a.pet) {
+        follow(a, pl, dist, dt);
+      } else {
+        wander(a, dt);
+      }
+      let diff = a.targetAngle - a.angle;
+      diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+      a.angle += diff * Math.min(1, dt * A.turnSpeed);
+    });
+    afterUpdate(dt);
+  }
+
+  // Your dog walks after you and sits down when it is close.
+  function follow(a, pl, dist, dt) {
+    const T = A.taming;
+    if (dist > T.teleportDistance) {                 // very far away: it finds you again
+      for (const ang of [Math.PI / 2, -Math.PI / 2, Math.PI, 0]) {
+        const x = pl.x + Math.cos(ang) * 60, y = pl.y + Math.sin(ang) * 60;
+        if (canStand(a, x, y)) { a.x = x; a.y = y; break; }
+      }
+      return;
+    }
+    if (dist > T.followDistance) { face(a, pl); moveToward(a, pl, T.petSpeed * dt); }
+  }
+  // R with meat facing a wolf: feed it. Returns 'pet' when it becomes your dog, else how many times it was fed.
+  function canTame(a) { return a.kind === 'wolf' && !a.pet && !a.dying; }
+  function feed(a) {
+    a.tame++; a.mode = 'calm'; a.walking = false; a.timer = between(A.restTimeMin, A.restTimeMax); a.heartT = 1.5;
+    if (a.tame >= A.taming.feedsNeeded) { a.pet = true; return 'pet'; }
+    return a.tame;
+  }
+
+  // Calm animals walk a little, then rest.
+  function wander(a, dt) {
       a.timer -= dt;
       if (a.timer <= 0) {
         a.walking = !a.walking;
@@ -744,29 +1096,34 @@ const Animals = (() => {
         if (canStand(a, nx, ny)) { a.x = nx; a.y = ny; }
         else { a.walking = false; a.timer = between(A.restTimeMin, A.restTimeMax); }
       }
-      let diff = a.targetAngle - a.angle;
-      diff = Math.atan2(Math.sin(diff), Math.cos(diff));
-      a.angle += diff * Math.min(1, dt * A.turnSpeed);
-    });
+  }
+
+  function afterUpdate(dt) {
     list = list.filter(a => !a.dying || a.fade > 0);
 
     // New animals appear far away when there are too few.
     respawnTimer += dt;
     if (respawnTimer >= A.respawnEvery) {
       respawnTimer = 0;
-      const kind = Object.keys(A.kinds).find(k => list.filter(a => a.kind === k && !a.dying).length < A.kinds[k].count);
+      const kind = Object.keys(A.kinds).find(k => list.filter(a => a.kind === k && !a.dying && !a.pet).length < A.kinds[k].count);
       const spot = kind && World.randomFarGrass(Math.random);
-      if (spot) { const a = make(kind, spot.x, spot.y); if (canStand(a, spot.x, spot.y)) list.push(a); }
+      const start = World.spawnPoint(), minD = (A.kinds[kind] && A.kinds[kind].minStartDistance || 0) * W.tileSize;
+      if (spot && Math.hypot(spot.x - start.x, spot.y - start.y) >= minD) {
+        const a = make(kind, spot.x, spot.y);
+        if (canStand(a, spot.x, spot.y)) list.push(a);
+      }
     }
   }
 
   // The closest living animal that the point touches, or null.
-  function findNear(px, py) {
+  // factor: how big the touch area is (axe uses a wide one, a shot a narrow one).
+  function findNear(px, py, factor) {
     let best = null, bestD = Infinity;
     list.forEach(a => {
-      if (a.dying) return;
+      if (a.dying || a.pet) return;                  // your dog is never hit
       const d = Math.hypot(a.x - px, a.y - py);
-      if (d <= kindOf(a).size * 0.6 + 8 && d < bestD) { best = a; bestD = d; }
+      const reach = factor ? kindOf(a).size * factor + 4 : kindOf(a).size * 0.6 + 8;
+      if (d <= reach && d < bestD) { best = a; bestD = d; }
     });
     return best;
   }
@@ -776,14 +1133,20 @@ const Animals = (() => {
     a.hits += power;
     a.walking = false;
     a.timer = between(A.restTimeMin, A.restTimeMax);
+    // Moose (and hunters) fight back when you hit them.
+    if (!Screens.peaceful() && kindOf(a).behavior !== 'calm' && a.mode === 'calm') startAlert(a);
     if (a.hits < kindOf(a).hits) return null;
     a.dying = true;
     a.fade = CONFIG.actions.fadeTime;
     return kindOf(a).drops;
   }
 
-  function save() { return list.filter(a => !a.dying).map(a => ({ kind: a.kind, x: Math.round(a.x), y: Math.round(a.y) })); }
-  function load(d) { list = d.filter(a => A.kinds[a.kind]).map(a => make(a.kind, a.x, a.y)); }
+  function save() {
+    return list.filter(a => !a.dying).map(a => ({ kind: a.kind, x: Math.round(a.x), y: Math.round(a.y), tame: a.tame, pet: a.pet }));
+  }
+  function load(d) {
+    list = d.filter(a => A.kinds[a.kind]).map(a => Object.assign(make(a.kind, a.x, a.y), { tame: a.tame || 0, pet: !!a.pet }));
+  }
 
   // ----- Drawings, seen from above. Each faces "up" before rotating. -----
   function rect(ctx, color, x, y, w, h, p) { ctx.fillStyle = color; ctx.fillRect(x * p, y * p, w * p, h * p); }
@@ -819,6 +1182,32 @@ const Animals = (() => {
       rect(ctx, C.sheepHead,      -3.5, -7.5,1.5, 1.5, p); // ears
       rect(ctx, C.sheepHead,       2,   -7.5,1.5, 1.5, p);
     },
+    fox(ctx, p) {
+      rect(ctx, C.fox,      -1.5,  4,   3,   5,   p);     // long tail
+      rect(ctx, C.foxLight, -1.5,  8.5, 3,   1.5, p);     // white tail tip
+      rect(ctx, C.fox,      -2.5, -3,   5,   8,   p);     // body
+      rect(ctx, C.fox,      -2,   -7,   4,   4,   p);     // head
+      rect(ctx, C.foxLight, -1,   -8.5, 2,   1.5, p);     // white snout
+      rect(ctx, C.foxDark,  -2.5, -8,   1.5, 1.5, p);     // pointed ears
+      rect(ctx, C.foxDark,   1,   -8,   1.5, 1.5, p);
+    },
+    wolf(ctx, p) {
+      rect(ctx, C.wolfDark,  -1,    6,   2,   4,   p);    // tail
+      rect(ctx, C.wolf,      -3,   -4,   6,   10,  p);    // body
+      rect(ctx, C.wolfDark,  -1.5, -3,   3,   7,   p);    // dark back
+      rect(ctx, C.wolf,      -2.2, -8,   4.4, 4.2, p);    // head
+      rect(ctx, C.wolfLight, -1,   -9.5, 2,   1.8, p);    // snout
+      rect(ctx, C.wolfDark,  -2.5, -9,   1.4, 1.6, p);    // ears
+      rect(ctx, C.wolfDark,   1.1, -9,   1.4, 1.6, p);
+    },
+    bear(ctx, p) {
+      rect(ctx, C.bear,      -4.5, -4,   9,   11,  p);    // big body
+      rect(ctx, C.bearDark,  -3,   -3,   6,   4,   p);    // shoulder hump
+      rect(ctx, C.bear,      -3,   -8.5, 6,   5,   p);    // head
+      rect(ctx, C.bearSnout, -1.5, -10,  3,   2,   p);    // snout
+      rect(ctx, C.bearDark,  -3.5, -9,   2,   2,   p);    // round ears
+      rect(ctx, C.bearDark,   1.5, -9,   2,   2,   p);
+    },
     moose(ctx, p) {
       rect(ctx, C.moose,       -3.5, -4,   7,   11,  p);  // big body
       rect(ctx, C.mooseDark,   -3.5, -4,   7,   3,   p);  // dark shoulders
@@ -843,9 +1232,26 @@ const Animals = (() => {
     ctx.fill();
     ctx.rotate(a.angle);
     drawBody[a.kind](ctx, p);
+    if (a.pet) rect(ctx, C.collar, -2.2, -4.6, 4.4, 1.3, p);      // your dog wears a red collar
     ctx.restore();
+    if (a.heartT > 0) {                                           // a small heart after feeding
+      ctx.globalAlpha = Math.min(1, a.heartT);
+      const hx = Math.round(sx) - 6, hy = Math.round(sy - k.size * 0.75 - 22);
+      ctx.fillStyle = C.heart2;
+      ctx.fillRect(hx, hy, 4, 4); ctx.fillRect(hx + 8, hy, 4, 4); ctx.fillRect(hx, hy + 2, 12, 4);
+      ctx.fillRect(hx + 2, hy + 6, 8, 2); ctx.fillRect(hx + 4, hy + 8, 4, 2);
+      ctx.globalAlpha = 1;
+    }
     if (a.hits > 0 && !a.dying)
       World.drawHitBar(ctx, sx, sy - k.size * 0.75 - 4, 1 - a.hits / k.hits);
+    // A steady "!" (no blinking) shows this animal is coming toward you.
+    if (a.mode !== 'calm' && !a.dying) {
+      const bx = Math.round(sx) - 7, by = Math.round(sy - k.size * 0.75 - 28);
+      ctx.fillStyle = C.alertBox; ctx.fillRect(bx, by, 14, 18);
+      ctx.fillStyle = C.alertText;
+      ctx.font = '700 14px system-ui, sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('!', bx + 7, by + 14); ctx.textAlign = 'left';
+    }
   }
 
   function draw(ctx, camX, camY, viewW, viewH) {
@@ -856,7 +1262,8 @@ const Animals = (() => {
     });
   }
 
-  return { init, update, draw, findNear, hit, blocksAt, save, load, list: () => list };
+  return { init, update, draw, findNear, hit, blocksAt, save, load, calmAll, canTame, feed,
+           hasPet: () => list.some(a => a.pet && !a.dying), list: () => list };
 })();
 </script>
 
@@ -906,6 +1313,20 @@ const Inventory = (() => {
 
   function select(i) { selected = i; changed(); }
 
+  function count(id) { return slots.reduce((t, s) => t + (s && s.id === id ? s.n : 0), 0); }
+  // Take n items, from the backpack first. Returns how many were taken.
+  function take(id, n) {
+    let got = 0;
+    for (let i = slots.length - 1; i >= 0 && got < n; i--) {
+      const s = slots[i];
+      if (!s || s.id !== id) continue;
+      const m = Math.min(n - got, s.n); s.n -= m; got += m;
+      if (s.n <= 0) slots[i] = null;
+    }
+    changed();
+    return got;
+  }
+
   function save() { return { slots: slots.map(s => s && { id: s.id, n: s.n }), selected }; }
   function load(d) {
     for (let i = 0; i < slots.length; i++) {
@@ -916,7 +1337,7 @@ const Inventory = (() => {
     changed();
   }
 
-  return { slots, add, addTo, canAdd, takeOne, maxStack, best, select, changed, save, load,
+  return { slots, add, addTo, canAdd, takeOne, maxStack, best, select, changed, save, load, count, take,
            selected: () => selected, selectedItem: () => slots[selected],
            onChange: f => listeners.push(f), H, BP };
 })();
@@ -1089,14 +1510,27 @@ const Mechanics = (() => {
     if (k) keys.delete(k);
   });
   window.addEventListener('blur', () => clearKeys());   // no stuck keys
+  // The right mouse button works like holding R (like eating in Minecraft).
+  const gameCanvas = document.getElementById('game');
+  gameCanvas.addEventListener('contextmenu', e => e.preventDefault());
+  gameCanvas.addEventListener('mousedown', e => { if (e.button === 2) { keys.add('use'); tapped.add('use'); } });
+  window.addEventListener('mouseup', e => { if (e.button === 2) keys.delete('use'); });
   function down(k) { return keys.has(k) || tapped.has(k); }
   function clearKeys() { keys.clear(); tapped.clear(); }
+  // (eating stops when keys are cleared, because R is no longer held)
 
-  const player = { x: 0, y: 0, angle: 0, targetAngle: 0, walkTime: 0, cooldown: 0, swing: 0, jump: 0 };
+  const player = { x: 0, y: 0, angle: 0, targetAngle: 0, walkTime: 0, cooldown: 0, swing: 0, jump: 0,
+                   eatT: 0, reloadT: 0, reloading: false };
+  // The rifle: shots loaded now, and the thin line of the last shot.
+  const RF = CONFIG.rifle;
+  let loaded = 0, shotLine = null, lastEmptyMessage = -1e9;
+  function holdingRifle() { const s = Inventory.selectedItem(); return !!(s && CONFIG.items[s.id].gun); }
+  let useLock = false;         // true while R is held after using it on a bed or campfire
   const survival = { health: S.maxHealth, hunger: S.maxHunger, hungerT: 0, starveT: 0, healT: 0 };
   let home = null;             // where you wake up (last bed or tent you slept in)
   let stats = freshStats();
-  function freshStats() { return { broke: {}, crafted: {}, placed: {}, ate: 0, slept: 0 }; }
+  function freshStats() { return { broke: {}, crafted: {}, placed: {}, ate: 0, slept: 0, cooked: 0 }; }
+  function cooked() { stats.cooked = (stats.cooked || 0) + 1; }
   function count(group, id) { stats[group][id] = (stats[group][id] || 0) + 1; }
 
   function init() {
@@ -1108,7 +1542,7 @@ const Mechanics = (() => {
     const h = P.hitbox / 2;
     if (World.isSolidAt(x - h, y - h) || World.isSolidAt(x + h, y - h) ||
         World.isSolidAt(x - h, y + h) || World.isSolidAt(x + h, y + h)) return false;
-    return !Animals.blocksAt(x, y, h, null);
+    return !Animals.blocksAt(x, y, h, null, true);     // you can walk past your dog
   }
 
   function facingPoint(dist) {
@@ -1136,6 +1570,61 @@ const Mechanics = (() => {
     return Math.max(CONFIG.tools.basicHuntPower, Inventory.best(it => it.hunt, it => it.hunt), toolPower('axe'));
   }
 
+  // F with the rifle: one shot in the direction you face.
+  function shoot() {
+    player.cooldown = RF.cooldown;
+    if (player.reloading) return;
+    if (loaded === 0) {
+      Sound.click();
+      const now = performance.now();
+      if (now - lastEmptyMessage > 2500) {
+        lastEmptyMessage = now;
+        Hotbar.say(Inventory.count('ammo') ? 'Out of ammo. Press R to reload.' : 'No ammo. Make some at the crafting table (iron + coal).');
+      }
+      return;
+    }
+    loaded--;
+    Inventory.changed();
+    Sound.rifle();
+    const a = player.targetAngle - Math.PI / 2, dx = Math.cos(a), dy = Math.sin(a);
+    const startD = P.hitbox / 2 + 4;
+    let endD = RF.range, hit = null;
+    for (let d = startD; d <= RF.range; d += 4) {
+      const x = player.x + dx * d, y = player.y + dy * d;
+      hit = Animals.findNear(x, y, 0.45);
+      if (hit) { endD = d; break; }
+      if (World.isSolidAt(x, y)) { endD = d; break; }        // trees, rocks and walls stop the shot
+    }
+    shotLine = { x1: player.x + dx * startD, y1: player.y + dy * startD,
+                 x2: player.x + dx * endD,   y2: player.y + dy * endD, t: RF.lineTime };
+    if (hit) {
+      const drops = Animals.hit(hit, RF.power);
+      if (drops) Object.entries(drops).forEach(([item, n]) => Drops.spawn(item, n, hit.x, hit.y));
+    }
+  }
+
+  // R with the rifle: reload from the ammo in your inventory.
+  function startReload() {
+    if (player.reloading) return null;
+    if (loaded >= RF.shots) return `The rifle is full (${loaded}/${RF.shots}).`;
+    if (!Inventory.count('ammo')) return 'No ammo. Make some at the crafting table (iron + coal).';
+    player.reloading = true; player.reloadT = 0;
+    Sound.click();
+    return 'Reloading...';
+  }
+  function updateReload(dt) {
+    if (!player.reloading) return;
+    if (!holdingRifle()) { player.reloading = false; player.reloadT = 0; return; }   // changed item: stop
+    player.reloadT += dt;
+    if (player.reloadT >= RF.reloadTime) {
+      player.reloading = false; player.reloadT = 0;
+      loaded += Inventory.take('ammo', RF.shots - loaded);
+      Inventory.changed();
+      Sound.reload();
+      Hotbar.say(`Reloaded: ${loaded}/${RF.shots}.`);
+    }
+  }
+
   // F: hit the animal or thing just in front of the player.
   function useAxe() {
     player.swing = ACT.swingTime;
@@ -1144,6 +1633,7 @@ const Mechanics = (() => {
     const animal = Animals.findNear(r.x, r.y);
     if (animal) {
       const drops = Animals.hit(animal, huntPower());
+      Sound.hit('animal');
       if (drops) Object.entries(drops).forEach(([item, n]) => Drops.spawn(item, n, animal.x, animal.y));
       return;
     }
@@ -1151,6 +1641,8 @@ const Mechanics = (() => {
     if (!target) return;
     const power = toolPower(target.block.tool);
     if (power === 0) { Hotbar.say('You need a pickaxe for this. Make one at a crafting table.'); return; }
+    if (power < (target.block.minPower || 0)) { Hotbar.say('You need a stone pickaxe for iron.'); return; }
+    Sound.hit(target.block.tool === 'pickaxe' ? 'stone' : 'wood');
     const drops = World.hitBlock(target.tx, target.ty, power);
     if (drops) {
       count('broke', target.name);
@@ -1164,6 +1656,10 @@ const Mechanics = (() => {
     const s = Inventory.selectedItem();
     if (!s) return 'Your hand is empty. Choose an item with a number key.';
     const item = CONFIG.items[s.id];
+    if (item.insideTent) {
+      Screens.notice(`You can't place your ${item.name.toLowerCase()} outside of your tent. Face your tent and press R to go inside, then place it there.`);
+      return null;
+    }
     if (!item.placeable) return `${item.name} can't be placed.`;
     const ts = CONFIG.world.tileSize, h = P.hitbox / 2;
     for (const steps of [1, 2]) {                // if you are too close, try one square further
@@ -1181,31 +1677,89 @@ const Mechanics = (() => {
     return 'No space here. Face open grass.';
   }
 
-  // R: sleep if you face a bed or tent, otherwise eat the chosen food.
-  function use() {
+  // R pressed: sleep if you face a bed or tent, cook if you face a campfire with raw meat.
+  // Returns { msg, used }. used = true means R did something, so holding it does not eat.
+  function useTap() {
     const r = facingPoint(ACT.reach);
-    const f = frontTile(1);
-    const spots = [World.tileOf(r.x, r.y), f];
+    const spots = [World.tileOf(r.x, r.y), frontTile(1)];
+    const thing = name => spots.find(t => World.nameAt(t.tx, t.ty) === name);
+    // The secret ring of mushrooms.
+    const rc = World.ringCenter();
+    if (rc && Math.hypot(player.x - rc.x, player.y - rc.y) < 30) return { msg: Easter.activate(), used: true };
+    const tent = thing('tent');
+    if (tent) { Tent.open(tent.tx, tent.ty); return { msg: null, used: true }; }
+    // Feed a wolf (raw or cooked meat). After a few times it becomes your dog.
+    const held = Inventory.selectedItem(), heldItem = held && CONFIG.items[held.id];
+    const wolf = Animals.findNear(r.x, r.y);
+    if (wolf && Animals.canTame(wolf) && heldItem && heldItem.food) {
+      Inventory.takeOne(Inventory.selected());
+      const res = Animals.feed(wolf);
+      if (res === 'pet') { stats.tamed = (stats.tamed || 0) + 1; return { msg: 'The wolf is now your dog! It will follow you everywhere.', used: true }; }
+      return { msg: `The wolf likes the ${heldItem.name.toLowerCase()} (${res}/${CONFIG.animals.taming.feedsNeeded}).`, used: true };
+    }
+    if (wolf && Animals.canTame(wolf) && !(heldItem && heldItem.gun))
+      return { msg: `Hold meat and press R to feed the wolf. Feed it ${CONFIG.animals.taming.feedsNeeded} times and it becomes your dog.`, used: true };
     const bed = spots.find(t => { const b = World.blockAt(t.tx, t.ty); return b && b.sleep; });
-    if (bed) {
-      if (!Time.canSleep()) return 'You can only sleep in the evening or at night.';
-      home = { x: player.x, y: player.y };
-      stats.slept++;
-      Screens.sleep();
-      return null;
+    if (bed) {                                   // a bed outside, from an old save
+      if (!Time.canSleep()) return { msg: 'You can only sleep in the evening or at night.', used: true };
+      sleepHere();
+      return { msg: null, used: true };
     }
     const s = Inventory.selectedItem();
     const item = s && CONFIG.items[s.id];
+    const fire = thing('campfire');
+    if (fire && item && item.cooksInto) {
+      if (!World.addCooking(fire.tx, fire.ty)) return { msg: `The campfire is full (${CONFIG.food.campfireSlots} pieces). Wait a little.`, used: true };
+      Inventory.takeOne(Inventory.selected());
+      return { msg: 'The meat is cooking. It will be ready soon.', used: true };
+    }
+    if (item && item.gun) return { msg: startReload(), used: true };
+    if (fire && !(item && item.food)) return { msg: 'Hold raw meat and press R to cook it on the campfire.', used: true };
     if (item && item.food) {
-      if (survival.hunger >= S.maxHunger) return 'You are not hungry.';
+      if (survival.hunger >= S.maxHunger) return { msg: 'You are not hungry.', used: true };
+      return { msg: null, used: false };        // keep holding R to eat
+    }
+    return { msg: 'R: hold food to eat it, face a campfire to cook, or face your tent to go inside.', used: true };
+  }
+
+  // Go to sleep. You will wake up here next time you faint.
+  function sleepHere() {
+    home = { x: player.x, y: player.y };
+    stats.slept++;
+    Screens.sleep();
+  }
+
+  // Holding R with food: a small bar fills, then you eat it.
+  function updateEating(dt) {
+    if (!keys.has('use')) useLock = false;
+    const s = Inventory.selectedItem();
+    const item = s && CONFIG.items[s.id];
+    if (!keys.has('use') || useLock || !item || !item.food || survival.hunger >= S.maxHunger) { player.eatT = 0; return; }
+    player.eatT += dt;
+    if (player.eatT >= CONFIG.food.eatTime) {
+      player.eatT = 0;
       survival.hunger = Math.min(S.maxHunger, survival.hunger + item.food);
       survival.hungerT = 0;
       Inventory.takeOne(Inventory.selected());
       stats.ate++;
-      return `You ate ${item.name.toLowerCase()}.`;
+      Hotbar.say(`Yum! You ate ${item.name.toLowerCase()} (+${item.food} chickens).`);
     }
-    return 'R eats food or sleeps. Choose food, or face a bed or tent.';
   }
+
+  // An animal bites you.
+  let lastHurtMessage = -1e9;
+  function hurt(n, name) {
+    survival.health = Math.max(0, survival.health - n);
+    survival.healT = 0;
+    const now = performance.now();
+    if (now - lastHurtMessage > 4000) {
+      lastHurtMessage = now;
+      Hotbar.say(`A ${name.toLowerCase()} is attacking you! Fight back with F, or walk away.`);
+      player.eatT = 0;
+    }
+    if (survival.health <= 0) Screens.faint(`You fainted. A ${name.toLowerCase()} hurt you. ${wakeText()}`);
+  }
+  function wakeText() { return home ? 'You wake up at your bed.' : 'You wake up at the start of the forest.'; }
 
   function updateSurvival(dt) {
     const sv = survival;
@@ -1213,8 +1767,8 @@ const Mechanics = (() => {
     if (sv.hungerT >= S.hungerEverySeconds) {
       sv.hungerT = 0;
       sv.hunger = Math.max(0, sv.hunger - 1);
-      if (sv.hunger === 3) Hotbar.say('You are getting hungry. Eat some food (R).');
-      if (sv.hunger === 0) Hotbar.say('You are starving! Eat now, or you lose hearts.');
+      if (sv.hunger === 3) Hotbar.say('You are getting hungry. Choose food and hold R to eat.');
+      if (sv.hunger === 0) Hotbar.say('You are starving! Hold R with food to eat, or you lose hearts.');
     }
     if (sv.hunger === 0) {
       sv.starveT += dt;
@@ -1224,7 +1778,7 @@ const Mechanics = (() => {
       sv.healT += dt;
       if (sv.healT >= S.healEverySeconds) { sv.healT = 0; sv.health++; }
     } else sv.healT = 0;
-    if (sv.health <= 0) Screens.faint(home ? 'You wake up at your bed.' : 'You wake up at the start of the forest.');
+    if (sv.health <= 0) Screens.faint(`You fainted from hunger. ${wakeText()}`);
   }
 
   function wakeUp() {
@@ -1243,8 +1797,10 @@ const Mechanics = (() => {
       dx /= len; dy /= len;
       const step = P.speed * dt;
       // Move one direction at a time so he slides along trees.
-      if (canStand(player.x + dx * step, player.y)) player.x += dx * step;
-      if (canStand(player.x, player.y + dy * step)) player.y += dy * step;
+      // If something ever ends up on top of him, he can still walk out of it.
+      const stuck = !canStand(player.x, player.y);
+      if (stuck || canStand(player.x + dx * step, player.y)) player.x += dx * step;
+      if (stuck || canStand(player.x, player.y + dy * step)) player.y += dy * step;
       player.targetAngle = Math.atan2(dy, dx) + Math.PI / 2;
       player.walkTime += dt;
     }
@@ -1255,14 +1811,21 @@ const Mechanics = (() => {
 
     player.cooldown = Math.max(0, player.cooldown - dt);
     player.swing = Math.max(0, player.swing - dt);
-    if (down('action') && player.cooldown === 0) { useAxe(); tapped.delete('action'); }
+    if (down('action') && player.cooldown === 0) { holdingRifle() ? shoot() : useAxe(); tapped.delete('action'); }
+    if (shotLine) { shotLine.t -= dt; if (shotLine.t <= 0) shotLine = null; }
 
     // Space: a small, smooth jump (for fun; it does not go over trees).
     player.jump = Math.max(0, player.jump - dt);
     if (down('jump') && player.jump === 0) { player.jump = P.jumpTime; tapped.delete('jump'); }
 
     if (tapped.has('place')) { const msg = placeSelected(); if (msg) Hotbar.say(msg); }
-    if (tapped.has('use'))   { const msg = use(); if (msg) Hotbar.say(msg); }
+    if (tapped.has('use')) {
+      const res = useTap();
+      if (res.msg) Hotbar.say(res.msg);
+      if (res.used) useLock = true;
+    }
+    updateEating(dt);
+    updateReload(dt);
 
     // Keep a tap of F or Space waiting if we are still in cooldown; forget the rest.
     ['up', 'down', 'left', 'right', 'place', 'use'].forEach(k => tapped.delete(k));
@@ -1271,11 +1834,12 @@ const Mechanics = (() => {
   }
 
   // Draw the lumberjack seen from above. He faces "up" before rotating.
-  function drawPlayer(ctx, sx, sy) {
+  function drawPlayer(ctx, sx, sy, who) {
+    const st = who || player;      // who: another position to draw (inside the tent)
     const p = P.size / 13;
-    const swing = Math.sin(player.walkTime * 8) * p * 0.6;
-    const chop = Math.sin((player.swing / ACT.swingTime) * Math.PI) * 0.9;       // 0 → 0.9 → 0
-    const lift = Math.sin((player.jump / P.jumpTime) * Math.PI) * P.jumpHeight;  // 0 → top → 0
+    const swing = Math.sin(st.walkTime * 8) * p * 0.6;
+    const chop = Math.sin((st.swing / ACT.swingTime) * Math.PI) * 0.9;       // 0 → 0.9 → 0
+    const lift = Math.sin((st.jump / P.jumpTime) * Math.PI) * P.jumpHeight;  // 0 → top → 0
     ctx.save();
     ctx.translate(Math.round(sx), Math.round(sy));
     // The shadow stays on the ground and gets a little smaller in the air.
@@ -1286,7 +1850,7 @@ const Mechanics = (() => {
     ctx.fill();
     ctx.translate(0, -lift);
     ctx.scale(1 + lift / 60, 1 + lift / 60);
-    ctx.rotate(player.angle);
+    ctx.rotate(st.angle);
     // shoulders (plaid shirt)
     ctx.fillStyle = C.shirt;      ctx.fillRect(-6 * p, -2.5 * p, 12 * p, 5 * p);
     ctx.fillStyle = C.shirtDark;
@@ -1299,30 +1863,53 @@ const Mechanics = (() => {
     // right hand with the axe (the axe swings gently when chopping)
     ctx.save();
     ctx.translate(6 * p, -1 * p - swing);
-    ctx.rotate(-chop);
-    ctx.fillStyle = C.skin;       ctx.fillRect(-1 * p, -1 * p, 2 * p, 2 * p);
-    ctx.fillStyle = C.axeHandle;  ctx.fillRect(-0.5 * p, -6 * p, p, 5 * p);
-    ctx.fillStyle = C.axeHead;    ctx.fillRect(0.5 * p, -6 * p, 2 * p, 2.5 * p);
+    if (holdingRifle()) {
+      ctx.fillStyle = C.rifleStock;  ctx.fillRect(-1 * p, -1 * p, 2 * p, 4 * p);   // stock
+      ctx.fillStyle = C.rifleBarrel; ctx.fillRect(-0.5 * p, -9 * p, p, 8 * p);    // barrel
+      ctx.fillStyle = C.skin;        ctx.fillRect(-1 * p, -1 * p, 2 * p, 2 * p);
+    } else {
+      ctx.rotate(-chop);
+      ctx.fillStyle = C.skin;       ctx.fillRect(-1 * p, -1 * p, 2 * p, 2 * p);
+      ctx.fillStyle = C.axeHandle;  ctx.fillRect(-0.5 * p, -6 * p, p, 5 * p);
+      ctx.fillStyle = Inventory.count('goldenAxe') ? C.gold : C.axeHead;  ctx.fillRect(0.5 * p, -6 * p, 2 * p, 2.5 * p);
+    }
     ctx.restore();
     // head (hair on top, forehead shows the front)
     ctx.fillStyle = C.hair;       ctx.fillRect(-3 * p, -3 * p, 6 * p, 6 * p);
     ctx.fillStyle = C.skin;       ctx.fillRect(-3 * p, -3 * p, 6 * p, 1.2 * p);
     ctx.restore();
+    // Eating: a small bar above you fills up.
+    if (st.eatT > 0) World.drawHitBar(ctx, sx, sy - P.size * 0.9 - 6, st.eatT / CONFIG.food.eatTime);
+    if (st.reloading) World.drawHitBar(ctx, sx, sy - P.size * 0.9 - 6, st.reloadT / RF.reloadTime);
+  }
+
+  // The thin line of the last shot (fades out, no flash). Drawn in world position.
+  function drawShot(ctx, camX, camY) {
+    if (!shotLine) return;
+    ctx.save();
+    ctx.globalAlpha = shotLine.t / RF.lineTime;
+    ctx.strokeStyle = C.shotLine; ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(shotLine.x1 - camX, shotLine.y1 - camY);
+    ctx.lineTo(shotLine.x2 - camX, shotLine.y2 - camY);
+    ctx.stroke();
+    ctx.restore();
   }
 
   function save() {
     return { x: Math.round(player.x), y: Math.round(player.y), angle: player.targetAngle,
-             health: survival.health, hunger: survival.hunger, home, stats };
+             health: survival.health, hunger: survival.hunger, home, stats, loaded };
   }
   function load(d) {
     player.x = d.x; player.y = d.y; player.angle = player.targetAngle = d.angle || 0;
     survival.health = d.health; survival.hunger = d.hunger;
     home = d.home || null;
     stats = Object.assign(freshStats(), d.stats || {});
+    loaded = d.loaded || 0;
   }
 
   return { init, update, drawPlayer, player, survival, clearKeys, nearTable, nearCampfire, wakeUp,
-           save, load, count, stats: () => stats };
+           save, load, count, hurt, cooked, drawShot, sleepHere, loaded: () => loaded, stats: () => stats };
 })();
 </script>
 
@@ -1345,6 +1932,12 @@ const Icons = (() => {
     sticks:       [...diag(wood, 2, 12, 9), ...diag('#9c7445', 6, 13, 8)],
     stone:        [['#8a8a86', 3, 4, 10, 9], ['#a3a39e', 5, 5, 3, 3], ['#6f6f6b', 9, 9, 3, 3]],
     coal:         [['#2e2e2e', 3, 4, 10, 9], ['#4a4a4a', 5, 5, 3, 3], ['#1f1f1f', 9, 9, 3, 3]],
+    iron:         [['#8a8a86', 3, 4, 10, 9], ['#d08a4a', 5, 6, 2, 2], ['#d08a4a', 9, 9, 2, 2], ['#e0a060', 8, 5, 2, 1]],
+    furnace:      [['#8a8a86', 1, 2, 14, 12], ['#6f6f6b', 1, 6, 14, 1], ['#6f6f6b', 1, 10, 14, 1], ['#2b2b2b', 5, 8, 6, 5], ['#e8893a', 6, 10, 4, 3]],
+    goldenAxe:    [...diag(wood, 3, 13, 9), ['#e8c547', 8, 2, 4, 3], ['#e8c547', 11, 3, 3, 4], ['#f2d870', 9, 5, 2, 2]],
+    rifle:        [...diag('#4a4d50', 5, 10, 9), ['#6e4a2c', 1, 11, 5, 3], ['#6e4a2c', 1, 13, 2, 2], ['#7a5230', 6, 10, 2, 2]],
+    ammo:         [['#c9a24a', 3, 5, 2, 8], ['#8a6a2a', 3, 4, 2, 1], ['#c9a24a', 7, 5, 2, 8], ['#8a6a2a', 7, 4, 2, 1],
+                   ['#c9a24a', 11, 5, 2, 8], ['#8a6a2a', 11, 4, 2, 1]],
     wool:         [['#e9e4d8', 2, 3, 12, 10], ['#d6d0c1', 4, 5, 3, 3], ['#d6d0c1', 9, 8, 3, 3], ['#d6d0c1', 5, 10, 2, 2]],
     meat:         [['#c9675b', 2, 4, 10, 8], ['#a9483f', 4, 6, 5, 4], ['#efe6d6', 11, 10, 3, 2], ['#efe6d6', 12, 9, 2, 4]],
     cookedMeat:   [['#8a4a2a', 2, 4, 10, 8], ['#6e3a20', 4, 6, 5, 4], ['#b5703c', 3, 5, 2, 2], ['#efe6d6', 11, 10, 3, 2], ['#efe6d6', 12, 9, 2, 4]],
@@ -1374,7 +1967,8 @@ const Icons = (() => {
   function get(id) { return urls[id] || (urls[id] = canvas(id).toDataURL()); }
   function img(id, n) {
     const name = CONFIG.items[id].name;
-    return `<img src="${get(id)}" alt="${name}" title="${name}">` + (n > 1 ? `<span class="count">${n}</span>` : '');
+    const label = CONFIG.items[id].gun ? `${Mechanics.loaded()}/${CONFIG.rifle.shots}` : n > 1 ? n : '';
+    return `<img src="${get(id)}" alt="${name}" title="${name}">` + (label !== '' ? `<span class="count">${label}</span>` : '');
   }
   return { get, canvas, img };
 })();
@@ -1470,12 +2064,15 @@ const Goals = (() => {
     ['Stand by the table. Press E. Make sticks, then a wooden pickaxe.', st => got(st, 'crafted', 'woodPickaxe')],
     ['Find grey rocks. Mine stone and coal with F.',                   st => got(st, 'broke', 'coal')],
     ['Make a campfire (sticks, coal and wood) and place it with Q.',   st => got(st, 'placed', 'campfire')],
-    ['Hunt an animal. Cook the meat: press E next to the campfire.',   st => got(st, 'crafted', 'cookedMeat')],
-    ['Eat: choose food and press R.',                                  st => st.ate >= 1],
-    ['Make a tent or a bed and place it with Q.',                      st => got(st, 'placed', 'tent') || got(st, 'placed', 'bed')],
-    ['At night, face your bed or tent and press R to sleep.',          st => st.slept >= 1],
+    ['Hunt an animal. Hold the raw meat, face the campfire, press R to cook it.', st => (st.cooked || 0) >= 1],
+    ['Eat: choose food and hold R (or the right mouse button).',      st => st.ate >= 1],
+    ['Make a tent (4 wool + 2 sticks) and place it with Q.',          st => got(st, 'placed', 'tent')],
+    ['Make a bed. Face your tent, press R to go inside, and place the bed.', st => got(st, 'placed', 'bedInTent')],
+    ['In the evening or at night, go into your tent and sleep in your bed.', st => st.slept >= 1],
     ['Make stone tools and build your base with walls.',               st => (got(st, 'crafted', 'stonePickaxe') || got(st, 'crafted', 'stoneAxe')) &&
-                                                                              (got(st, 'placed', 'woodWall') || got(st, 'placed', 'stoneWall'))]
+                                                                              (got(st, 'placed', 'woodWall') || got(st, 'placed', 'stoneWall'))],
+    ['Find iron (rocks with orange spots, needs a stone pickaxe). Make a hunting rifle and ammo.',
+                                                                       st => got(st, 'crafted', 'rifle') && got(st, 'crafted', 'ammo')]
   ];
   let last = '';
   function update() {
@@ -1516,7 +2113,9 @@ const Hotbar = (() => {
     if (i >= Inventory.H) return;
     Inventory.select(i);
     const s = Inventory.selectedItem();
-    say(s ? CONFIG.items[s.id].name : 'Empty slot');
+    const it = s && CONFIG.items[s.id];
+    say(!s ? 'Empty slot' : it.food ? `${it.name} · hold R to eat`
+        : it.gun ? `${it.name} ${Mechanics.loaded()}/${CONFIG.rifle.shots} · F: shoot · R: reload` : it.name);
   });
 
   Inventory.onChange(render);
@@ -1541,7 +2140,7 @@ const InventoryScreen = (() => {
   const panel = document.getElementById('invPanel');
   const book = document.getElementById('book');
   const cursorEl = document.getElementById('cursorItem');
-  let open = false, gridSize = 2, grid = [], cursor = null, bookOpen = false, drag = null;
+  let open = false, gridSize = 2, grid = [], cursor = null, bookOpen = true, drag = null, message = '';
   let near = { campfire: false };
 
   const arrFor = area => area === 'inv' ? Inventory.slots : grid;
@@ -1560,7 +2159,7 @@ const InventoryScreen = (() => {
     let backpack = '', hotbar = '';
     for (let i = H; i < inv.length; i++) backpack += slot('inv', i, inv[i]);
     for (let i = 0; i < H; i++) hotbar += slot('inv', i, inv[i], i === sel ? 'sel' : '');
-    const title = (gridSize === 3 ? 'Crafting table' : 'Crafting') + (near.campfire ? ' · campfire nearby (you can cook)' : '');
+    const title = gridSize === 3 ? 'Crafting table' : 'Crafting';
     panel.innerHTML = `
       <div class="label">${title}</div>
       <div class="craftArea">
@@ -1571,11 +2170,12 @@ const InventoryScreen = (() => {
         ${slot('result', 0, result ? { id: result.makes, n: result.amount } : null, 'big')}
         <button class="book" data-book>${bookOpen ? 'Hide recipes' : 'Recipes'}</button>
       </div>
+      <div class="craftMsg">${message}</div>
       ${gridSize === 2 ? '<div class="note">Stand next to a crafting table to get the big 3 × 3 grid.</div>' : ''}
       <div class="label">Inventory</div>
       <div class="slots">${backpack}</div>
       <div class="slots hotrow">${hotbar}</div>
-      <div class="note">Click or drag to move items · Right-click: one item · Shift + click: quick move · E: close</div>`;
+      <div class="note">Recipes: click one to fill the grid (Shift + click: as many as you can) · Click or drag to move items · Right-click: one item · E: close</div>`;
     renderBook();
     renderCursor();
   }
@@ -1584,17 +2184,22 @@ const InventoryScreen = (() => {
   function renderBook() {
     book.classList.toggle('open', bookOpen);
     if (!bookOpen) return;
+    const scroll = book.scrollTop;                     // keep the list where it was
     book.innerHTML = '<div class="label">Recipes</div>' + CONFIG.recipes.map(rc => {
       const cols = rc.pattern[0].length;
       const cells = rc.pattern.join('').split('').map(ch =>
         `<div class="rbCell">${ch === ' ' ? '' : `<img src="${Icons.get(rc.key[ch])}" title="${CONFIG.items[rc.key[ch]].name}" alt="">`}</div>`).join('');
       const tag = rc.near ? 'next to a campfire' : Crafting.needsTable(rc) ? 'crafting table' : '';
-      return `<div class="rbRow">
+      const why = whyNot(rc);
+      const status = why ? why : 'Click to fill the grid';
+      return `<div class="rbRow ${why ? 'cannot' : 'can'}" data-recipe="${CONFIG.recipes.indexOf(rc)}">
         <div class="rbGrid" style="grid-template-columns: repeat(${cols}, 20px)">${cells}</div>
         <div class="rbOut">➜ <img src="${Icons.get(rc.makes)}" alt=""> ${rc.amount} ${CONFIG.items[rc.makes].name}
-          ${tag ? `<span class="rbTag">${tag}</span>` : ''}</div>
+          ${tag ? `<span class="rbTag">${tag}</span>` : ''}
+          <span class="rbStatus">${status}</span></div>
       </div>`;
     }).join('');
+    book.scrollTop = scroll;
   }
 
   function renderCursor() {
@@ -1680,6 +2285,67 @@ const InventoryScreen = (() => {
     }
   }
 
+  // ----- Recipe book: click a recipe and the ingredients go into the grid -----
+  function countItem(id) { return Inventory.slots.reduce((t, s) => t + (s && s.id === id ? s.n : 0), 0); }
+  function takeItem(id, n) {
+    for (let i = Inventory.slots.length - 1; i >= 0 && n > 0; i--) {     // take from the backpack first
+      const s = Inventory.slots[i];
+      if (!s || s.id !== id) continue;
+      const m = Math.min(n, s.n); s.n -= m; n -= m;
+      if (s.n <= 0) Inventory.slots[i] = null;
+    }
+  }
+  function needsOf(rc) {
+    const need = {};
+    rc.pattern.join('').split('').forEach(ch => { if (ch !== ' ') need[rc.key[ch]] = (need[rc.key[ch]] || 0) + 1; });
+    return need;
+  }
+  function fitsGrid(rc) { return rc.pattern.length <= gridSize && rc.pattern[0].length <= gridSize; }
+  // Counts the items in the grid as yours too, because filling puts them back first.
+  function haveCount(id) { return countItem(id) + grid.reduce((t, s) => t + (s && s.id === id ? s.n : 0), 0) +
+                                  (cursor && cursor.id === id ? cursor.n : 0); }
+  // Returns a short reason why this recipe can't be made now, or '' if it can.
+  function whyNot(rc) {
+    if (!fitsGrid(rc)) return 'Needs a crafting table';
+    if (rc.near && !near[rc.near]) return 'Needs a campfire nearby';
+    const missing = Object.entries(needsOf(rc)).filter(([id, n]) => haveCount(id) < n)
+      .map(([id, n]) => `${n - haveCount(id)} ${CONFIG.items[id].name}`);
+    return missing.length ? 'Missing: ' + missing.join(', ') : '';
+  }
+  // Put everything in the grid (and in your hand) back into the inventory.
+  function emptyGrid() {
+    const back = grid.filter(Boolean);
+    if (cursor) back.push(cursor);
+    const pl = Mechanics.player;
+    back.forEach(s => { const left = Inventory.addTo(s.id, s.n, 0, Inventory.slots.length); if (left) Drops.spawn(s.id, left, pl.x, pl.y); });
+    grid = grid.map(() => null); cursor = null;
+  }
+  function fillRecipe(i, many) {
+    const rc = CONFIG.recipes[i], name = CONFIG.items[rc.makes].name;
+    const why = whyNot(rc);
+    if (why) { message = `${name}: ${why.toLowerCase()}.`; return; }
+    emptyGrid();
+    const need = needsOf(rc);
+    let sets = Math.min(...Object.entries(need).map(([id, n]) => Math.floor(countItem(id) / n)));
+    sets = many ? Math.min(sets, CONFIG.inventory.stackSize) : 1;
+    Object.entries(need).forEach(([id, n]) => takeItem(id, n * sets));
+    rc.pattern.forEach((row, r) => [...row].forEach((ch, c) => {
+      if (ch !== ' ') grid[r * gridSize + c] = { id: rc.key[ch], n: sets };
+    }));
+    message = sets > 1
+      ? `Ready! Shift + click the result to make all ${sets * rc.amount} ${name}.`
+      : `Ready! Click the result on the right to make ${rc.amount} ${name}.`;
+  }
+
+  book.addEventListener('mousedown', e => {
+    const row = e.target.closest('[data-recipe]');
+    if (!row) return;
+    e.preventDefault();
+    fillRecipe(+row.dataset.recipe, e.shiftKey);
+    Inventory.changed();
+    render();
+  });
+
   function slotAt(x, y) {
     const el = document.elementFromPoint(x, y);
     const s = el && el.closest && el.closest('#invPanel .slot[data-area]');
@@ -1694,7 +2360,7 @@ const InventoryScreen = (() => {
     }
     e.preventDefault();
     const area = el.dataset.area, i = +el.dataset.i, right = e.button === 2;
-    if (area === 'result') { e.shiftKey ? craftAll() : craftOnce(); }
+    if (area === 'result') { e.shiftKey ? craftAll() : craftOnce(); message = ''; }
     else if (e.shiftKey && !cursor && area === 'inv') quickMove(i);
     else if (!cursor) { pickUp(area, i, right); if (cursor) drag = { mode: 'carry', area, i }; }
     else drag = { mode: 'spread', one: right, visited: [{ area, i }] };
@@ -1736,7 +2402,7 @@ const InventoryScreen = (() => {
     gridSize = Mechanics.nearTable() ? 3 : 2;
     near = { campfire: Mechanics.nearCampfire() };
     grid = new Array(gridSize * gridSize).fill(null);
-    cursor = null; drag = null;
+    cursor = null; drag = null; message = '';
     render();
     screen.classList.add('open');
   }
@@ -1801,7 +2467,7 @@ const Screens = (() => {
   function faint(text) {
     if (fainted) return;
     fainted = true;
-    document.getElementById('faintText').textContent = 'You fainted from hunger. ' + text + ' You keep all your items.';
+    document.getElementById('faintText').textContent = text + ' You keep all your items.';
     faintBox.classList.add('open');
   }
   function wake() {
@@ -1809,7 +2475,8 @@ const Screens = (() => {
     fainted = false;
     faintBox.classList.remove('open');
     Mechanics.wakeUp();
-    Hotbar.say('Eat some food soon (choose it, press R).');
+    Animals.calmAll();
+    Hotbar.say('Eat some food soon: choose it and hold R.');
   }
   document.getElementById('wakeUp').addEventListener('click', wake);
 
@@ -1825,7 +2492,590 @@ const Screens = (() => {
     }
   });
 
-  return { sleep, faint, setHelp, busy: () => sleeping || fainted };
+  // Peaceful setting: no animal attacks. Remembered in this browser.
+  const settingsKey = CONFIG.save.key + '-settings';
+  let peaceful = false;
+  try { peaceful = JSON.parse(localStorage.getItem(settingsKey) || '{}').peaceful === true; } catch (e) {}
+  const peaceBtn = document.getElementById('peaceful');
+  function showPeace() {
+    peaceBtn.textContent = peaceful ? 'Peaceful: ON (animals do not attack)' : 'Peaceful: OFF (wolves and bears attack)';
+  }
+  peaceBtn.addEventListener('click', () => {
+    peaceful = !peaceful;
+    try { localStorage.setItem(settingsKey, JSON.stringify({ peaceful })); } catch (e) {}
+    showPeace();
+    Hotbar.say(peaceful ? 'Peaceful is on. Animals will not attack.' : 'Peaceful is off. Watch out for wolves and bears.');
+  });
+  showPeace();
+
+  // A calm pop-up message with an OK button (Enter, Esc or a click closes it).
+  const noticeBox = document.getElementById('notice');
+  let noticeOpen = false;
+  function notice(text) {
+    document.getElementById('noticeText').textContent = text;
+    noticeBox.classList.add('open');
+    noticeOpen = true;
+    Mechanics.clearKeys();
+  }
+  function closeNotice() { noticeBox.classList.remove('open'); noticeOpen = false; Mechanics.clearKeys(); }
+  document.getElementById('noticeOk').addEventListener('click', closeNotice);
+  window.addEventListener('keydown', e => {
+    if (noticeOpen && ['Enter', 'Escape', 'Space'].includes(e.code)) { e.preventDefault(); closeNotice(); }
+  });
+
+  return { sleep, faint, setHelp, notice, peaceful: () => peaceful,
+           busy: () => sleeping || fainted || noticeOpen || Tent.isOpen() };
+})();
+</script>
+
+<!-- ============================================================
+     TENT — the inside of your tent. Face a tent and press R.
+     A cozy room seen from above. Walk around inside like outside.
+     Your bed goes here (not outside).
+     ============================================================ -->
+<script>
+const Tent = (() => {
+  const screen = document.getElementById('tentScreen');
+  const canvas = document.getElementById('tentCanvas');
+  const g = canvas.getContext('2d');
+  const statusEl = document.getElementById('tentStatus');
+  const SPEED = 130, R0 = 11;                         // walking speed inside, your size
+  const BED = { x: 80, y: 80, w: 100, h: 150 };       // the place for the bed
+  const FURN = { x: 176, y: 280, w: 60, h: 52 };      // the place for the stone furnace
+  const DOGBED = { x: 362, y: 296, w: 56, h: 36 };    // a little bed for your dog
+  const DOOR = { x1: 265, x2: 335 };                  // the opening at the bottom
+  let open = false, tx = 0, ty = 0, raf = 0, last = 0, msg = '', msgT = 0;
+  const me = { x: 300, y: 330, angle: 0, targetAngle: 0, walkTime: 0, swing: 0, jump: 0,
+               eatT: 0, reloading: false, reloadT: 0 };
+  const keys = new Set();
+  const keyMap = { ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', KeyS: 'down',
+                   ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right' };
+
+  function rect(color, x, y, w, h) { g.fillStyle = color; g.fillRect(x, y, w, h); }
+
+  // Everything inside is drawn with simple blocks, like the rest of the game. Nothing moves.
+  function draw() {
+    const hasBed = World.tentHasBed(tx, ty);
+    rect('#3f5a33', 0, 0, 600, 400);                                   // grass around the tent
+    rect('#cdbf9c', 30, 20, 540, 350);                                 // canvas walls
+    for (let x = 30; x <= 570; x += 90) rect('#b9ab88', x - 1, 20, 2, 350);   // wall seams
+    rect('#7a5a3c', 60, 50, 480, 300);                                 // wooden floor
+    for (let y = 80; y < 350; y += 30) rect('#6a4c32', 60, y, 480, 2);  // floor boards
+    // Entrance (bottom middle), open to the grass.
+    rect('#3f5a33', 265, 350, 70, 20); rect('#b9ab88', 245, 340, 20, 30); rect('#b9ab88', 335, 340, 20, 30);
+    // A string of little flags along the top wall.
+    rect('#6e4a2c', 70, 58, 460, 2);
+    const flagColors = ['#c95b4b', '#e0b04a', '#6f9a4e', '#5b8ec9'];
+    for (let i = 0; i < 15; i++) {
+      g.fillStyle = flagColors[i % 4];
+      g.beginPath(); g.moveTo(76 + i * 30, 60); g.lineTo(92 + i * 30, 60); g.lineTo(84 + i * 30, 72); g.fill();
+    }
+    // Warm, steady lantern light (no flicker).
+    g.fillStyle = 'rgba(242, 190, 90, 0.16)';
+    g.beginPath(); g.arc(212, 104, 90, 0, Math.PI * 2); g.fill();
+    // Big rug in the middle.
+    rect('#a8463c', 200, 150, 200, 130); rect('#e0b04a', 208, 158, 184, 114); rect('#a8463c', 214, 164, 172, 102);
+    for (let i = 0; i < 4; i++) rect('#e0b04a', 250 + i * 30, 207, 12, 12);
+    // The stone furnace (or the empty place for it).
+    const td = World.tentData(tx, ty);
+    if (td.furnace) {
+      const f = td.furnace, burning = f.cooking.length > 0;
+      if (burning) {                                                   // warm, steady glow
+        g.fillStyle = 'rgba(242, 150, 70, 0.18)';
+        g.beginPath(); g.arc(FURN.x + 30, FURN.y + 30, 62, 0, Math.PI * 2); g.fill();
+      }
+      rect('#5f5f5b', FURN.x + 4, FURN.y + 4, FURN.w, FURN.h);          // shadow
+      rect('#8a8a86', FURN.x, FURN.y, FURN.w, FURN.h);                  // stones
+      for (let row = 1; row < 4; row++) rect('#6f6f6b', FURN.x, FURN.y + row * 13, FURN.w, 2);
+      for (let row = 0; row < 4; row++) rect('#6f6f6b', FURN.x + (row % 2 ? 18 : 38), FURN.y + row * 13, 2, 13);
+      rect('#2b2b2b', FURN.x + 18, FURN.y + 30, 24, 16);                // opening
+      if (burning) { rect('#e8893a', FURN.x + 21, FURN.y + 36, 18, 10); rect('#f2c14e', FURN.x + 26, FURN.y + 39, 8, 6); }
+      for (let i = 0; i < Math.min(f.ready, 4); i++) rect('#8a4a2a', FURN.x + 4 + i * 14, FURN.y + 6, 10, 8);  // cooked meat on top
+      if (burning) World.drawHitBar(g, FURN.x + 30, FURN.y - 10, f.cooking[0] / CONFIG.furnace.cookTime);
+    } else {
+      g.save(); g.setLineDash([6, 5]); g.strokeStyle = '#f1ede0'; g.lineWidth = 2;
+      g.strokeRect(FURN.x, FURN.y, FURN.w, FURN.h); g.restore();
+      g.fillStyle = '#f1ede0'; g.font = '600 12px system-ui, sans-serif'; g.textAlign = 'center';
+      g.fillText('Furnace', FURN.x + 30, FURN.y + 30); g.textAlign = 'left';
+    }
+    // A little dog bed. Your dog (if you have one) sleeps here.
+    rect('#9c6a4a', DOGBED.x, DOGBED.y, DOGBED.w, DOGBED.h); rect('#c9a27a', DOGBED.x + 4, DOGBED.y + 4, DOGBED.w - 8, DOGBED.h - 8);
+    if (Animals.hasPet()) {
+      rect('#8a8d8f', DOGBED.x + 10, DOGBED.y + 9, 28, 17); rect('#64676a', DOGBED.x + 14, DOGBED.y + 11, 18, 4);
+      rect('#64676a', DOGBED.x + 6, DOGBED.y + 20, 12, 4);                                  // tail
+      rect('#8a8d8f', DOGBED.x + 34, DOGBED.y + 12, 12, 12);                                // head
+      rect('#64676a', DOGBED.x + 34, DOGBED.y + 9, 4, 4); rect('#64676a', DOGBED.x + 42, DOGBED.y + 9, 4, 4);  // ears
+      rect('#c0392b', DOGBED.x + 32, DOGBED.y + 12, 2, 12);                                 // collar
+      g.fillStyle = '#f1ede0'; g.font = '600 11px system-ui, sans-serif'; g.fillText('z', DOGBED.x + 48, DOGBED.y + 4);
+      g.font = '600 9px system-ui, sans-serif'; g.fillText('z', DOGBED.x + 54, DOGBED.y - 3);
+    }
+    // The bed (or the empty place for it).
+    if (hasBed) {
+      rect('#5a4030', 84, 84, 100, 150);                               // shadow
+      rect('#8a6437', 80, 80, 100, 150);                               // frame
+      rect('#efe9dd', 90, 88, 80, 30); rect('#ddd5c4', 90, 112, 80, 4); // pillow
+      rect('#b5463b', 88, 124, 84, 100);                               // blanket
+      rect('#8f342c', 88, 150, 84, 6); rect('#8f342c', 88, 190, 84, 6); // stripes
+      rect('#e0b04a', 88, 206, 84, 14);                                // folded throw
+    } else {
+      g.save(); g.setLineDash([8, 6]); g.strokeStyle = '#f1ede0'; g.lineWidth = 2;
+      g.strokeRect(80, 80, 100, 150); g.restore();
+      g.fillStyle = '#f1ede0'; g.font = '600 14px system-ui, sans-serif'; g.textAlign = 'center';
+      g.fillText('Your bed', 130, 150); g.fillText('goes here', 130, 168); g.textAlign = 'left';
+    }
+    // Little crate next to the bed, with a lantern on it.
+    rect('#8a6437', 192, 92, 40, 36); rect('#6e4a2c', 192, 108, 40, 3); rect('#6e4a2c', 210, 92, 3, 36);
+    rect('#3a3a3a', 204, 76, 16, 20); rect('#f2c14e', 207, 80, 10, 12); rect('#3a3a3a', 209, 70, 6, 6);
+    // Small table with a mug and a book.
+    rect('#a47a4f', 320, 88, 60, 40); rect('#7a5230', 320, 124, 60, 4);
+    rect('#efe6d6', 332, 96, 12, 12); rect('#c9b48a', 334, 98, 8, 4);  // mug
+    rect('#5b8ec9', 352, 98, 18, 13); rect('#e9e4d8', 354, 100, 14, 2); // book
+    // Bookshelf crate with books (top right).
+    rect('#8a6437', 440, 76, 90, 54); rect('#6e4a2c', 440, 102, 90, 3);
+    const books = ['#c95b4b', '#5b8ec9', '#e0b04a', '#6f9a4e', '#9c6ab0', '#c95b4b', '#e9e4d8'];
+    books.forEach((c, i) => rect(c, 446 + i * 11, 80 + (i % 3) * 2, 8, 20 - (i % 3) * 2));
+    rect('#efe9dd', 448, 108, 30, 18); rect('#c9b48a', 484, 110, 40, 16);   // folded clothes, a box
+    // Potted plant.
+    rect('#a0573a', 500, 160, 24, 22); rect('#8a4a30', 500, 160, 24, 4);
+    [[504, 146, 6, 14], [512, 140, 6, 20], [520, 148, 6, 12], [496, 150, 8, 6], [524, 144, 6, 8]]
+      .forEach(([x, y, w, h]) => rect('#4f8a3f', x, y, w, h));
+    // Soft cushions by the rug.
+    rect('#5b8ec9', 420, 200, 40, 34); rect('#4a78ad', 420, 228, 40, 6);
+    rect('#e0b04a', 444, 238, 40, 34); rect('#c99a3a', 444, 266, 40, 6);
+    // Stack of firewood by the entrance.
+    for (let i = 0; i < 3; i++) for (let j = 0; j < 3 - i; j++) {
+      rect('#6e4a2c', 92 + j * 22 + i * 11, 316 - i * 16, 20, 14); rect('#a47a4f', 97 + j * 22 + i * 11, 320 - i * 16, 10, 6);
+    }
+    // Basket with wool by the entrance.
+    rect('#9c7445', 450, 296, 64, 40); rect('#7a5a34', 450, 312, 64, 3);
+    rect('#e9e4d8', 458, 288, 20, 14); rect('#e9e4d8', 482, 286, 22, 16);
+  }
+
+  // Furniture you can't walk through: [x, y, width, height].
+  function furniture() {
+    const list = [[192, 70, 40, 58], [320, 88, 60, 40], [440, 76, 90, 54], [496, 140, 32, 42],
+                  [420, 200, 40, 34], [444, 238, 40, 34], [92, 284, 66, 46], [450, 286, 64, 50]];
+    if (World.tentHasBed(tx, ty)) list.push([BED.x, BED.y, BED.w, BED.h]);
+    if (World.tentData(tx, ty).furnace) list.push([FURN.x, FURN.y, FURN.w, FURN.h]);
+    return list;
+  }
+  function overlaps(x, y, [fx, fy, fw, fh]) { return x + R0 > fx && x - R0 < fx + fw && y + R0 > fy && y - R0 < fy + fh; }
+  function blocked(x, y) {
+    if (x - R0 < 60 && x < me.x) return true;                                    // tent walls
+    if (x + R0 > 540 && x > me.x) return true;
+    if (y - R0 < 50 && y < me.y) return true;
+    if (y + R0 > 350 && !(x - R0 >= DOOR.x1 && x + R0 <= DOOR.x2) && y > me.y) return true; // only the door is open
+    // Furniture blocks you, but never something you are already standing in,
+    // so you can always walk out (you can never get stuck).
+    return furniture().some(f => overlaps(x, y, f) && !overlaps(me.x, me.y, f));
+  }
+  function near(box) {
+    const dx = Math.max(box.x - me.x, 0, me.x - (box.x + box.w));
+    const dy = Math.max(box.y - me.y, 0, me.y - (box.y + box.h));
+    return Math.hypot(dx, dy) < R0 + 16;
+  }
+  function nearBed() { return near(BED); }
+  function nearFurnace() { return near(FURN); }
+  // When something is placed where you stand, step to a free spot next to it.
+  function stepAside(box) {
+    if (!overlaps(me.x, me.y, [box.x, box.y, box.w, box.h])) return;
+    const fits = (x, y) => x - R0 >= 60 && x + R0 <= 540 && y - R0 >= 50 && y + R0 <= 350 &&
+                           !furniture().some(f => overlaps(x, y, f));
+    const spots = [[box.x + box.w + R0 + 2, me.y], [box.x - R0 - 2, me.y], [me.x, box.y - R0 - 2],
+                   [me.x, box.y + box.h + R0 + 2], [300, 330]];
+    const free = spots.find(([x, y]) => fits(x, y));
+    if (free) { me.x = free[0]; me.y = free[1]; }
+  }
+
+  function say(t) { msg = t; msgT = 3; }
+  function hint() {
+    if (nearFurnace()) {
+      const f = World.tentData(tx, ty).furnace;
+      if (!f) return 'Your furnace goes here. Choose the stone furnace with a number key and press Q.';
+      if (f.ready) return `${f.ready} cooked meat ready. R: take it.`;
+      if (f.cooking.length) return `Cooking ${f.cooking.length} meat... Hold raw meat and press R to add more. F: take the furnace.`;
+      return 'Your furnace. Hold raw meat and press R to cook it (it uses coal). F: take the furnace.';
+    }
+    if (near(DOGBED) && Animals.hasPet()) return 'Your dog is sleeping. Shh...';
+    if (!nearBed()) return 'Walk with W A S D or the arrows. Walk out of the door to leave.';
+    if (World.tentHasBed(tx, ty)) return Time.canSleep() ? 'Your bed. R: sleep · F: take the bed.'
+                                                          : 'Your bed. You can sleep (R) in the evening or at night. F: take the bed.';
+    return 'Your bed goes here. Choose the bed with a number key and press Q.';
+  }
+
+  // Q: put the bed in its place.
+  function placeBed() {
+    if (!nearBed()) return say('Walk to the dashed square first. That is where your bed goes.');
+    if (World.tentHasBed(tx, ty)) return say('Your bed is already here.');
+    const s = Inventory.selectedItem();
+    if (!s || s.id !== 'bed')
+      return say(Inventory.count('bed') ? 'Choose your bed with a number key, then press Q.'
+                                        : 'You need a bed. Make one at the crafting table: 3 wool on top of 3 planks.');
+    Inventory.takeOne(Inventory.selected());
+    World.setTentBed(tx, ty, true);
+    stepAside(BED);                            // standing on the bed space? step to the side
+    Mechanics.count('placed', 'bedInTent');
+    say('Your bed is in your tent. Cozy!');
+  }
+  // Q: put the stone furnace in its place.
+  function placeFurnace() {
+    if (!nearFurnace()) return say('Walk to the dashed square by the firewood. That is where your furnace goes.');
+    const td = World.tentData(tx, ty);
+    if (td.furnace) return say('Your furnace is already here.');
+    const s = Inventory.selectedItem();
+    if (!s || s.id !== 'furnace')
+      return say(Inventory.count('furnace') ? 'Choose your stone furnace with a number key, then press Q.'
+                                            : 'You need a stone furnace. Make one at the crafting table: 8 stone in a ring.');
+    Inventory.takeOne(Inventory.selected());
+    td.furnace = { fuel: 0, cooking: [], ready: 0 };
+    stepAside(FURN);
+    Mechanics.count('placed', 'furnaceInTent');
+    say('Your furnace is ready. Hold raw meat and press R to cook.');
+  }
+  function placeQ() {
+    const s = Inventory.selectedItem();
+    if (nearFurnace() || (s && s.id === 'furnace')) return placeFurnace();
+    return placeBed();
+  }
+  // R at the furnace: put raw meat in (uses coal), or take the cooked meat out.
+  function useFurnace() {
+    const f = World.tentData(tx, ty).furnace, F = CONFIG.furnace;
+    const s = Inventory.selectedItem(), item = s && CONFIG.items[s.id];
+    if (item && item.cooksInto) {
+      if (f.cooking.length >= F.maxPieces) return say(`The furnace is full (${F.maxPieces} pieces). Wait a little.`);
+      if (f.fuel <= 0) {
+        if (!Inventory.count('coal')) return say('The furnace needs coal. Bring some coal and try again.');
+        Inventory.take('coal', 1); f.fuel += F.piecesPerCoal;
+      }
+      Inventory.takeOne(Inventory.selected());
+      f.fuel--; f.cooking.push(0);
+      return say('The meat is cooking in the furnace.');
+    }
+    if (f.ready) {
+      const left = Inventory.add('cookedMeat', f.ready), got = f.ready - left;
+      f.ready = left;
+      return say(got ? `You took ${got} cooked meat. Yum!` : 'There is no space in your inventory.');
+    }
+    return say(f.cooking.length ? 'The meat is still cooking. Wait a little.' : 'Hold raw meat and press R to cook it.');
+  }
+  // F at the furnace: take it back (with the meat inside).
+  function takeFurnace() {
+    const td = World.tentData(tx, ty), f = td.furnace;
+    if (!f) return;
+    if (Inventory.add('furnace', 1)) return say('There is no space in your inventory.');
+    const pl = Mechanics.player;
+    if (f.cooking.length) { const l = Inventory.add('meat', f.cooking.length); if (l) Drops.spawn('meat', l, pl.x, pl.y); }
+    if (f.ready) { const l = Inventory.add('cookedMeat', f.ready); if (l) Drops.spawn('cookedMeat', l, pl.x, pl.y); }
+    td.furnace = null;
+    say('You took your furnace.');
+  }
+  function useR() { if (nearFurnace() && World.tentData(tx, ty).furnace) return useFurnace(); sleep(); }
+  function useF() { if (nearFurnace()) return takeFurnace(); takeBed(); }
+
+  // R: sleep in the bed.
+  function sleep() {
+    if (!World.tentHasBed(tx, ty)) return say('Place your bed first (Q, at the dashed square).');
+    if (!nearBed()) return say('Walk to your bed to sleep.');
+    if (!Time.canSleep()) return say('You can only sleep in the evening or at night.');
+    close();
+    Mechanics.sleepHere();
+  }
+  // F: take the bed back.
+  function takeBed() {
+    if (!World.tentHasBed(tx, ty) || !nearBed()) return;
+    if (Inventory.add('bed', 1)) return say('There is no space in your inventory.');
+    World.setTentBed(tx, ty, false);
+    say('You took your bed.');
+  }
+
+  function step(dt) {
+    let dx = (keys.has('right') ? 1 : 0) - (keys.has('left') ? 1 : 0);
+    let dy = (keys.has('down') ? 1 : 0) - (keys.has('up') ? 1 : 0);
+    if (dx || dy) {
+      const len = Math.hypot(dx, dy); dx /= len; dy /= len;
+      const st = SPEED * dt;
+      if (!blocked(me.x + dx * st, me.y)) me.x += dx * st;      // slide along furniture
+      if (!blocked(me.x, me.y + dy * st)) me.y += dy * st;
+      me.targetAngle = Math.atan2(dy, dx) + Math.PI / 2;
+      me.walkTime += dt;
+    }
+    let diff = me.targetAngle - me.angle;
+    diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+    me.angle += diff * Math.min(1, dt * 12);
+    if (me.y > 362) { close(); return; }                          // walked out of the door
+    msgT = Math.max(0, msgT - dt);
+    statusEl.textContent = msgT > 0 ? msg : hint();
+    World.cookFurnaces(dt);                      // the furnace keeps cooking while you are inside
+  }
+
+  function loop(t) {
+    if (!open) return;
+    try {
+      step(Math.min((t - last) / 1000, 0.05));
+      last = t;
+      if (open) { draw(); Mechanics.drawPlayer(g, me.x, me.y, me); }
+    } catch (e) { console.error('Tent error:', e && e.stack || e); }
+    if (open) raf = requestAnimationFrame(loop);
+  }
+
+  function openTent(x, y) {
+    tx = x; ty = y; open = true;
+    me.x = 300; me.y = 330; me.angle = me.targetAngle = 0; msgT = 0;   // just inside the door, facing in
+    keys.clear();
+    Mechanics.clearKeys();
+    screen.classList.add('open');
+    last = performance.now();
+    raf = requestAnimationFrame(loop);
+  }
+  function close() {
+    open = false;
+    cancelAnimationFrame(raf);
+    keys.clear();
+    screen.classList.remove('open');
+    Mechanics.clearKeys();
+  }
+
+  document.getElementById('tentLeave').addEventListener('click', close);
+  window.addEventListener('keydown', e => {
+    if (!open) return;
+    const k = keyMap[e.code];
+    if (k) { keys.add(k); e.preventDefault(); return; }
+    if (e.repeat) return;
+    if (e.code === 'KeyQ') { e.preventDefault(); placeQ(); }
+    else if (e.code === 'KeyR') { e.preventDefault(); useR(); }
+    else if (e.code === 'KeyF') { e.preventDefault(); useF(); }
+    else if (e.code === 'Escape' || e.code === 'KeyE') { e.preventDefault(); close(); }
+  });
+  window.addEventListener('keyup', e => { const k = keyMap[e.code]; if (k) keys.delete(k); });
+  window.addEventListener('blur', () => keys.clear());
+
+  // How much fire sound to play inside (the furnace crackles while it cooks).
+  function fireLevel() {
+    if (!open) return 0;
+    const f = World.tentData(tx, ty).furnace;
+    return f && f.cooking.length ? 0.75 : 0;
+  }
+
+  return { open: openTent, close, isOpen: () => open, fireLevel };
+})();
+</script>
+
+<!-- ============================================================
+     EASTER EGG — shh... a ring of red mushrooms is hidden far away
+     in the forest. Stand in the middle at night and press R.
+     ============================================================ -->
+<script>
+const Easter = (() => {
+  const E = CONFIG.easter;
+  let flies = [];
+  function activate() {
+    if (!Time.isNight()) return 'The mushrooms seem to be waiting for the night...';
+    flies = [];
+    for (let i = 0; i < E.fireflyCount; i++)
+      flies.push({ a: Math.random() * Math.PI * 2, r: 30 + Math.random() * 110,
+                   s: (Math.random() < 0.5 ? -1 : 1) * (0.15 + Math.random() * 0.25),
+                   t: 0, life: E.fireflyTime * (0.6 + Math.random() * 0.4), z: Math.random() * 6 });
+    Sound.chime();
+    Mechanics.stats().fairyRing = true;
+    if (Inventory.count('goldenAxe')) return 'The fireflies dance around you.';
+    const pl = Mechanics.player, left = Inventory.add('goldenAxe', 1);
+    if (left) Drops.spawn('goldenAxe', 1, pl.x, pl.y);
+    return 'Magic! The fairy ring gives you a Golden axe. It chops a tree in one hit.';
+  }
+  function update(dt) {
+    flies.forEach(f => { f.t += dt; f.a += f.s * dt; });
+    flies = flies.filter(f => f.t < f.life);
+  }
+  // Fireflies float slowly around you. They fade in and out softly (no blinking).
+  function draw(ctx, camX, camY) {
+    const pl = Mechanics.player;
+    flies.forEach(f => {
+      const k = Math.sin(Math.PI * f.t / f.life);
+      const x = pl.x - camX + Math.cos(f.a) * f.r, y = pl.y - camY + Math.sin(f.a) * f.r * 0.8 + Math.sin(f.t * 1.3 + f.z) * 6;
+      ctx.fillStyle = `rgba(230, 245, 150, ${0.25 * k})`;
+      ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = `rgba(250, 255, 200, ${0.9 * k})`;
+      ctx.fillRect(Math.round(x) - 1, Math.round(y) - 1, 3, 3);
+    });
+  }
+  return { activate, update, draw };
+})();
+</script>
+
+<!-- ============================================================
+     SOUND — calm music and soft sounds, made inside the game
+     (no sound files). Music starts OFF (press M). Nothing is loud.
+     ============================================================ -->
+<script>
+const Sound = (() => {
+  const S = CONFIG.sound;
+  const key = CONFIG.save.key + '-audio';
+  const st = { music: S.musicOn, sounds: S.soundsOn, volume: S.volume };
+  try { Object.assign(st, JSON.parse(localStorage.getItem(key) || '{}')); } catch (e) {}
+  function store() { try { localStorage.setItem(key, JSON.stringify(st)); } catch (e) {} }
+
+  let ac = null, master, musicGain, sfxGain, fireGain, lapGain, noiseBuf, musicTimer = null, nextNote = 0, beat = 0, note = 2;
+  let lapPhase = 0;
+
+  // Browsers only allow sound after a key press or a click, so we start here.
+  function ensure() {
+    if (ac) { if (ac.state === 'suspended') ac.resume(); return true; }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return false;
+    ac = new AC();
+    master = ac.createGain(); master.gain.value = st.volume; master.connect(ac.destination);
+    musicGain = ac.createGain(); musicGain.gain.value = 0; musicGain.connect(master);
+    sfxGain = ac.createGain(); sfxGain.gain.value = st.sounds ? 1 : 0; sfxGain.connect(master);
+    noiseBuf = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate);
+    const d = noiseBuf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    // The campfire: the warm, low "whoosh" of the flames and a very quiet hiss.
+    // The little crackles and pops are added in update(). Louder as you come closer.
+    fireGain = ac.createGain(); fireGain.gain.value = 0; fireGain.connect(sfxGain);
+    const lap = ac.createBufferSource(); lap.buffer = noiseBuf; lap.loop = true;
+    const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 380;
+    lapGain = ac.createGain(); lapGain.gain.value = 0.5;
+    lap.connect(lp).connect(lapGain).connect(fireGain); lap.start();
+    const hiss = ac.createBufferSource(); hiss.buffer = noiseBuf; hiss.loop = true;
+    const hp = ac.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 5000;
+    const hissGain = ac.createGain(); hissGain.gain.value = 0.06;
+    hiss.connect(hp).connect(hissGain).connect(fireGain); hiss.start(0, 0.7);
+    if (st.music) startMusic();
+    return true;
+  }
+  window.addEventListener('keydown', ensure);
+  window.addEventListener('mousedown', ensure);
+
+  // A soft note: starts quickly, fades out slowly.
+  function tone(freq, dur, type, vol, dest, at, endFreq) {
+    const t = at || ac.currentTime;
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, t);
+    if (endFreq) o.frequency.exponentialRampToValueAtTime(endFreq, t + dur);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(vol, t + Math.min(0.06, dur / 4));
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(dest || sfxGain);
+    o.start(t); o.stop(t + dur + 0.05);
+  }
+  // A short soft noise (for chops, the rifle, crackles).
+  function noise(dur, freq, vol, type, at) {
+    const t = at || ac.currentTime;
+    const src = ac.createBufferSource(); src.buffer = noiseBuf;
+    const f = ac.createBiquadFilter(); f.type = type || 'lowpass'; f.frequency.value = freq;
+    const g = ac.createGain();
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(f).connect(g).connect(sfxGain);
+    src.start(t, Math.random()); src.stop(t + dur + 0.05);
+  }
+
+  // ----- Sounds -----
+  function ready() { return ensure() && st.sounds; }
+  function hit(kind) {
+    if (!ready()) return;
+    if (kind === 'wood') {                         // a soft wooden "thock"
+      noise(0.08, 900, 0.3); tone(150, 0.14, 'sine', 0.3, null, 0, 90);
+    } else if (kind === 'stone') {                 // a gentle "tink"
+      tone(880, 0.12, 'triangle', 0.1); tone(1320, 0.08, 'sine', 0.05); noise(0.05, 2500, 0.08, 'highpass');
+    } else {                                       // a soft thud
+      tone(110, 0.12, 'sine', 0.28, null, 0, 70); noise(0.06, 500, 0.15);
+    }
+  }
+  function rifle() {                               // a muffled "pof", not a loud bang
+    if (!ready()) return;
+    noise(0.2, 1000, 0.4); tone(90, 0.22, 'sine', 0.3, null, 0, 45);
+  }
+  function click() { if (ready()) tone(1400, 0.04, 'square', 0.03); }
+  function reload() {
+    if (!ready()) return;
+    tone(900, 0.05, 'square', 0.035); tone(600, 0.06, 'square', 0.035, null, ac.currentTime + 0.12);
+  }
+  // Called every frame: campfire sound by distance (level 0 = far, 1 = right next to it).
+  // Like sitting in front of a real campfire: soft crackles, sometimes a few together, sometimes a little pop.
+  function crackle(level, at) {
+    noise(0.004 + Math.random() * 0.012, 2500 + Math.random() * 4000, (0.05 + Math.random() * 0.12) * level, 'highpass', at);
+  }
+  function pop(level) { noise(0.03 + Math.random() * 0.03, 700 + Math.random() * 500, 0.14 * level, 'bandpass'); }
+  function update(dt, fireLevel) {
+    if (!ac) return;
+    fireGain.gain.setTargetAtTime(fireLevel * 0.12, ac.currentTime, 0.4);
+    lapPhase += dt * (0.7 + Math.random() * 0.6);                 // the flames slowly "breathe"
+    lapGain.gain.setTargetAtTime(0.35 + 0.25 * Math.sin(lapPhase) + Math.random() * 0.1, ac.currentTime, 0.25);
+    if (!st.sounds || fireLevel <= 0) return;
+    if (Math.random() < dt * 14 * fireLevel) {
+      crackle(fireLevel);
+      if (Math.random() < 0.3) {
+        const n = 1 + Math.floor(Math.random() * 3);
+        for (let i = 1; i <= n; i++) crackle(fireLevel, ac.currentTime + i * (0.02 + Math.random() * 0.05));
+      }
+    }
+    if (Math.random() < dt * 0.8 * fireLevel) pop(fireLevel);
+  }
+  // A soft, magical chime (the secret).
+  function chime() {
+    if (!ready()) return;
+    [523.3, 659.3, 784.0, 1046.5, 1318.5].forEach((fr, i) => tone(fr, 1.6, 'sine', 0.06, null, ac.currentTime + i * 0.16));
+  }
+
+  // ----- Music: slow, soft notes. A brighter tune by day, a calmer and lower one at night. -----
+  const DAY = [261.6, 293.7, 329.6, 392.0, 440.0, 523.3, 587.3];   // C major pentatonic
+  const NIGHT = [220.0, 261.6, 293.7, 329.6, 392.0, 440.0];         // A minor pentatonic
+  function schedule() {
+    if (!ac) return;
+    while (nextNote < ac.currentTime + 0.8) {
+      const night = Time.nightAmount() > 0.5;
+      const scale = night ? NIGHT : DAY, step = night ? 1.3 : 0.85;
+      if (beat % 8 === 0) {                        // a soft low chord every few notes
+        tone(scale[0] / 2, step * 7, 'sine', 0.07, musicGain, nextNote);
+        tone(scale[3] / 2, step * 7, 'sine', 0.05, musicGain, nextNote);
+      }
+      if (Math.random() > 0.25) {                  // the tune walks gently up and down
+        note = Math.max(0, Math.min(scale.length - 1, note + [-2, -1, -1, 0, 1, 1, 2][Math.floor(Math.random() * 7)]));
+        tone(scale[note], night ? 2.4 : 1.7, 'triangle', 0.09, musicGain, nextNote);
+      }
+      nextNote += step; beat++;
+    }
+  }
+  function startMusic() {
+    if (!ac) return;
+    musicGain.gain.cancelScheduledValues(ac.currentTime);
+    musicGain.gain.setTargetAtTime(0.8, ac.currentTime, 1.5);           // fades in slowly
+    if (!musicTimer) { nextNote = ac.currentTime + 0.3; musicTimer = setInterval(schedule, 200); }
+  }
+  function stopMusic() {
+    if (!ac) return;
+    musicGain.gain.setTargetAtTime(0, ac.currentTime, 0.6);             // fades out
+    setTimeout(() => { if (!st.music && musicTimer) { clearInterval(musicTimer); musicTimer = null; } }, 3000);
+  }
+
+  // ----- Buttons and keys -----
+  const musicBtn = document.getElementById('musicBtn');
+  const soundBtn = document.getElementById('soundBtn');
+  const volumeEl = document.getElementById('volume');
+  function showButtons() {
+    musicBtn.textContent = st.music ? 'Music: ON' : 'Music: OFF';
+    soundBtn.textContent = st.sounds ? 'Sounds: ON' : 'Sounds: OFF';
+    volumeEl.value = Math.round(st.volume * 100);
+  }
+  function toggleMusic() {
+    st.music = !st.music; store(); showButtons();
+    if (!ensure()) return Hotbar.say('This browser cannot play sound.');
+    st.music ? startMusic() : stopMusic();
+    Hotbar.say(st.music ? 'Music on (M to turn it off).' : 'Music off.');
+  }
+  musicBtn.addEventListener('click', toggleMusic);
+  soundBtn.addEventListener('click', () => {
+    st.sounds = !st.sounds; store(); showButtons();
+    if (ensure()) sfxGain.gain.setTargetAtTime(st.sounds ? 1 : 0, ac.currentTime, 0.1);
+  });
+  volumeEl.addEventListener('input', () => {
+    st.volume = volumeEl.value / 100; store();
+    if (ensure()) master.gain.setTargetAtTime(st.volume, ac.currentTime, 0.05);
+  });
+  window.addEventListener('keydown', e => { if (e.code === 'KeyM' && !e.repeat) toggleMusic(); });
+  showButtons();
+
+  return { hit, rifle, click, reload, update, chime, settings: () => ({ ...st }) };
 })();
 </script>
 
@@ -1925,11 +3175,25 @@ const Game = (() => {
     Animals.draw(ctx, camX, camY, viewW, viewH);
     Drops.draw(ctx, camX, camY);
     Mechanics.drawPlayer(ctx, pl.x - camX, pl.y - camY);
+    Mechanics.drawShot(ctx, camX, camY);
     drawNight(camX, camY);
+    Easter.draw(ctx, camX, camY);
     Hud.draw(ctx, viewW);
   }
 
+  // If something unexpected goes wrong, the game keeps running and the details go to the console.
+  let errorShown = false;
   function frame(time) {
+    try { step(time); }
+    catch (e) {
+      console.error('Woodland Survival Craft error:', e && e.stack || e);
+      if (!errorShown) { errorShown = true; Hotbar.say('Something went wrong, but the game keeps going.'); }
+      lastTime = time;
+    }
+    requestAnimationFrame(frame);
+  }
+
+  function step(time) {
     const dt = Math.min((time - lastTime) / 1000, CONFIG.game.maxFrameTime);
     lastTime = time;
     // The world pauses while the inventory is open, while sleeping, and after fainting.
@@ -1939,12 +3203,19 @@ const Game = (() => {
       Animals.update(dt);
       Mechanics.update(dt);
       Drops.update(dt);
+      Easter.update(dt);
       saveTimer += dt;
       if (saveTimer >= CONFIG.save.everySeconds) { saveTimer = 0; Save.write(); }
     }
+    // Campfire sound: louder as you come closer (quieter while the game waits).
+    const pl = Mechanics.player, hear = CONFIG.sound.fireHearDistance;
+    const d = World.nearestDistance(pl.x, pl.y, 'campfire', hear);
+    const paused = InventoryScreen.isOpen() || Screens.busy();
+    let fire = d < hear ? (1 - d / hear) * (paused ? 0.4 : 1) : 0;
+    if (Tent.isOpen()) fire = Math.max(fire * 0.4, Tent.fireLevel());   // the furnace inside the tent
+    Sound.update(dt, fire);
     Goals.update();
     draw();
-    requestAnimationFrame(frame);
   }
 
   function start() {
@@ -1952,7 +3223,7 @@ const Game = (() => {
     let loaded = false;
     if (saved && saved.version === 1) {
       try {
-        World.load(saved.world);
+        World.load(saved.world, !!(saved.player && 'loaded' in saved.player));
         Animals.load(saved.animals);
         Drops.load(saved.drops || []);
         Mechanics.load(saved.player);
