@@ -124,17 +124,23 @@
     F: chop, mine, hunt, break<br>
     Space: jump<br>
     1 – 0: choose a hotbar slot<br>
-    Q: place (table, tent, campfire, torch, wall)<br>
+    Q: place (table, tent, campfire, torch, wall, gate, garlic)<br>
+    R facing a gate: open / close it. With the gate key: lock / unlock<br>
     R (hold) or right mouse button: eat food<br>
     R facing a campfire with raw meat: cook it<br>
     R facing your tent: go inside and walk around (place your bed, sleep)<br>
     With the rifle: F shoots, R reloads<br>
-    R facing a wolf with meat: tame it (3 times and it becomes your dog)<br>
+    With the slingshot: F shoots garlic (vampires only fear garlic)<br>
+    Q with garlic: plant it. F on ripe garlic: harvest<br>
+    R facing a wolf with meat or a bone: tame it (3 times and it becomes your dog)<br>
     E: inventory and crafting<br>
     Wolves and bears attack. A moose fights back if you hit it.<br>
+    At night zombies and skeletons come out. On full-moon nights, a werewolf.<br>
+    Some nights a vampire comes out. Only garlic hurts it.<br>
+    Night creatures stay out of the light of campfires and torches.<br>
     <button id="peaceful"></button><br>
     M: music on/off<br>
-    <button id="musicBtn"></button> <button id="soundBtn"></button><br>
+    <button id="musicBtn"></button> <button id="soundBtn"></button> <button id="ambientBtn"></button><br>
     Volume <input id="volume" type="range" min="0" max="100" style="vertical-align: middle; width: 140px"><br>
     <span id="newWorldArea"><button id="newWorld" class="danger">Start a new world</button></span><br>
   </div>
@@ -236,7 +242,14 @@ const CONFIG = {
     campfire:  { hits: 2, tool: 'axe',     drops: { campfire: 1 },  solid: true,  light: 180 },
     torch:     { hits: 1, tool: 'axe',     drops: { torch: 1 },     solid: false, light: 120 },
     woodWall:  { hits: 3, tool: 'axe',     drops: { woodWall: 1 },  solid: true },
-    stoneWall: { hits: 4, tool: 'pickaxe', drops: { stoneWall: 1 }, solid: true }
+    stoneWall: { hits: 4, tool: 'pickaxe', drops: { stoneWall: 1 }, solid: true },
+    // Garlic: wild patches in the forest, and garlic you plant (it grows in 3 stages).
+    garlicWild: { hits: 1, tool: 'axe',    drops: { garlic: 2 },    solid: false, natural: true, plant: true },
+    garlic0:   { hits: 1, tool: 'axe',     drops: { garlic: 1 },    solid: false, plant: true },   // sprout
+    garlic1:   { hits: 1, tool: 'axe',     drops: { garlic: 1 },    solid: false, plant: true },   // green leaves
+    garlic2:   { hits: 1, tool: 'axe',     drops: { garlic: 3 },    solid: false, plant: true },   // ripe
+    // A wooden farm gate with two doors. Closed: nothing can pass. Open: you (and animals) can walk through.
+    gate:      { hits: 3, tool: 'axe',     drops: { gate: 1 },      solid: true,  gate: true }
   },
   tools: {
     basicAxePower: 1,      // the axe you always carry
@@ -275,7 +288,22 @@ const CONFIG = {
                 chaseSpeed: 95, damage: 2 },
       bear:   { name: 'Bear',   count: 3,  nearStart: 0, hits: 12, drops: { meat: 12 },
                 speed: 30, size: 40, hitbox: 30, behavior: 'hunter',
-                chaseSpeed: 90, damage: 2, minStartDistance: 18 }
+                chaseSpeed: 90, damage: 2, minStartDistance: 18 },
+      // Not part of the food chain. Never appears by itself: see CONFIG.vampire.
+      vampire: { name: 'Vampire', count: 0, nearStart: 0, hits: 5, drops: {},
+                speed: 35, size: 34, hitbox: 22, behavior: 'vampire',
+                chaseSpeed: 85, damage: 1, garlicOnly: true, avoidLight: true,
+                notice: 620, giveUp: 760 },  // it looks for you from further away
+      // Night creatures (see CONFIG.night). They come out at night and fade away at sunrise.
+      zombie:   { name: 'Zombie',   count: 0, nearStart: 0, hits: 6,  drops: { wool: 1 },
+                  speed: 25, size: 32, hitbox: 20, behavior: 'night', avoidLight: true,
+                  chaseSpeed: 70, damage: 1, notice: 420, giveUp: 520 },
+      skeleton: { name: 'Skeleton', count: 0, nearStart: 0, hits: 6,  drops: { bone: 2 },
+                  speed: 30, size: 32, hitbox: 20, behavior: 'night', avoidLight: true, ranged: true,
+                  chaseSpeed: 75, damage: 1, notice: 420, giveUp: 520 },
+      werewolf: { name: 'Werewolf', count: 0, nearStart: 0, hits: 16, drops: { bone: 3, meat: 4 },
+                  speed: 40, size: 38, hitbox: 26, behavior: 'night', avoidLight: true,
+                  chaseSpeed: 115, damage: 2, notice: 460, giveUp: 560 }
     }
   },
   drops: {
@@ -298,6 +326,45 @@ const CONFIG = {
     range: 320,            // pixels a shot can travel. Trees, rocks and walls stop it.
     cooldown: 0.6,         // seconds between shots
     lineTime: 0.3          // seconds the thin shot line stays (no flash)
+  },
+  garlic: {
+    wildPatches: 14,       // groups of wild garlic (white flowers) in the forest
+    wildNearStart: 2,      // wild garlic kept close to the start (5–10 squares away)
+    minWild: 20,           // the forest always has at least this much wild garlic
+    stageTime: 180         // seconds for each growing stage (sprout → leaves → ripe): 2 stages = about one game day
+  },
+  gate: {
+    swingTime: 0.5         // seconds for the doors to swing open or closed (slow and smooth)
+  },
+  slingshot: {
+    speed: 260,            // pixels per second: the garlic flies slowly, so you can see it
+    range: 300,            // pixels
+    cooldown: 0.5          // seconds between shots
+  },
+  vampire: {
+    firstNight: 2,         // the first night a vampire can come out (Day 2)
+    everyNights: 2,        // then every 2nd night (Day 2, 4, 6 ...)
+    spawnDistance: 460,    // pixels: it appears this far from you, never in the light
+    garlicHits: 5,         // garlic hits to beat it (the axe and the rifle do nothing)
+    keepAway: 110,         // pixels: holding garlic, the vampire will not come closer than this
+    campfireLight: 150,    // pixels: it will not walk into a campfire's light ...
+    torchLight: 100,       // ... or a torch's light
+    leaveAt: 0.4           // morning: when the night is lighter than this, it turns into bats and flies away
+  },
+  night: {
+    firstNight: 1,         // zombies and skeletons come out every night, from Day 1
+    startAt: 0.6,          // 0 to 1: they come out once the evening is this dark (before full night)
+    maxZombies: 6,         // at most this many at the same time
+    maxSkeletons: 4,
+    spawnEvery: 7,         // seconds between new night creatures (never in the light)
+    perSpawn: 2,           // how many come out each time
+    spawnDistance: 420,    // pixels from you: just outside the screen, so they find you soon
+    fullMoonFirst: 4,      // the werewolf comes out on full-moon nights: Day 4, then every 4th night
+    fullMoonEvery: 4,
+    boneSpeed: 160,        // pixels per second: skeleton bones fly slowly, you can walk out of the way
+    boneEvery: 2.5,        // seconds between bones
+    boneRange: 260,        // pixels
+    keepDistance: [150, 210]   // a skeleton stays this far from you while it throws
   },
   furnace: {
     cookTime: 6,           // seconds for one piece of meat (one at a time, like Minecraft)
@@ -345,7 +412,13 @@ const CONFIG = {
     campfire:     { name: 'Campfire',       placeable: 'campfire' },
     torch:        { name: 'Torch',          placeable: 'torch' },
     woodWall:     { name: 'Wooden wall',    placeable: 'woodWall' },
-    stoneWall:    { name: 'Stone wall',     placeable: 'stoneWall' }
+    stoneWall:    { name: 'Stone wall',     placeable: 'stoneWall' },
+    garlic:       { name: 'Garlic',         placeable: 'garlic0' },  // plant it, or shoot it with the slingshot
+    slingshot:    { name: 'Garlic slingshot', stack: 1, sling: true },
+    cape:         { name: 'Vampire cape',   stack: 1, light: 160 }, // a bigger light around you at night
+    bone:         { name: 'Bone' },                               // a dog treat: feed it to a wolf to tame it
+    gate:         { name: 'Wooden gate',    placeable: 'gate' },
+    key:          { name: 'Gate key',       stack: 1 }              // hold it and press R at a closed gate: lock / unlock
   },
   // Recipes, drawn like the crafting grid. A space means "leave this square empty".
   // Recipes wider or taller than 2 need the 3 x 3 grid (stand next to a crafting table).
@@ -366,13 +439,26 @@ const CONFIG = {
     { makes: 'campfire',     amount: 1, pattern: [' K ', 'KCK', 'WWW'], key: { K: 'sticks', C: 'coal', W: 'wood' } },
     { makes: 'furnace',      amount: 1, pattern: ['SSS', 'S S', 'SSS'], key: { S: 'stone' } },
     { makes: 'rifle',        amount: 1, pattern: ['III', 'PPK'],        key: { I: 'iron', P: 'planks', K: 'sticks' } },
-    { makes: 'ammo',         amount: 8, pattern: ['I', 'C'],            key: { I: 'iron', C: 'coal' } }
+    { makes: 'ammo',         amount: 8, pattern: ['I', 'C'],            key: { I: 'iron', C: 'coal' } },
+    { makes: 'slingshot',    amount: 1, pattern: ['KLK', ' K ', ' K '], key: { K: 'sticks', L: 'wool' } },
+    { makes: 'gate',         amount: 1, pattern: ['KPK', 'KPK'],        key: { K: 'sticks', P: 'planks' } },
+    { makes: 'key',          amount: 1, pattern: ['I', 'K'],            key: { I: 'iron', K: 'sticks' } }
   ],
   sound: {
     volume: 0.5,           // 0 to 1: starting volume (the player can change it in the H box)
     musicOn: false,        // music starts OFF; press M to turn it on
     soundsOn: true,        // soft sounds for the axe, the rifle and the campfire
-    fireHearDistance: 260  // pixels: you hear a campfire when you are this close
+    fireHearDistance: 260, // pixels: you hear a campfire when you are this close
+    // Forest sounds in the background (a button in the H box turns them off).
+    ambientOn: true,
+    ambientVolume: 0.5,    // 0 to 1, compared with the other sounds
+    insideTent: 0.35,      // forest sounds are quieter inside the tent
+    birdEvery: [5, 14],    // seconds between bird songs (daytime), random between these
+    owlEvery: [25, 50],    // seconds between owl calls (night)
+    wolfEvery: [60, 110],  // seconds between far-away wolf howls (night)
+    // Music comes now and then, like in Minecraft: it plays for a while, then it is quiet.
+    musicPlay: [35, 55],   // seconds a piece of music lasts
+    musicRest: [45, 90]    // seconds of quiet between pieces
   },
   save: {
     key: 'woodland-survival-craft-save-v1',
@@ -400,6 +486,12 @@ const CONFIG = {
     wolf: '#8a8d8f', wolfDark: '#64676a', wolfLight: '#c9cbcc',
     bear: '#4a3324', bearDark: '#3a281b', bearSnout: '#8a6a4a',
     alertBox: '#f1ede0', alertText: '#2b2b2b', collar: '#c0392b', heart2: '#e0605a',
+    gatePost: '#6e4a2c', gateWood: '#b88b56', gateBrace: '#8a6437', lock: '#9a9a95', lockDark: '#5c5c58',
+    garlicLeaf: '#5f9a3f', garlicFlower: '#f4f1e6', garlicBulb: '#efe9dc', garlicStripe: '#b98fb0', soil: '#6e5236',
+    zombieSkin: '#7fa36a', zombieShirt: '#4f6f9a', zombieShirtDark: '#3d5778', zombieHair: '#3b4a2f',
+    boneWhite: '#e9e6dc', boneShade: '#b9b5a8', boneDark: '#4a4740',
+    wereFur: '#5a4535', wereDark: '#3e2f24', wereLight: '#8a7258', wereEye: '#e8c547',
+    vampCape: '#1f1a24', vampLining: '#8f2330', vampFace: '#e6e1dc', vampHair: '#121014', bat: '#2a2430',
     mushroomCap: '#c0392b', mushroomDot: '#f1ede0', mushroomStem: '#e9e4d8', gold: '#e8c547',
     tableTop: '#b88b56', tableEdge: '#6e4a2c', tableLine: '#8a6437',
     tentCloth: '#d9ceb2', tentShade: '#b9ad8f', tentPole: '#7a5230', tentDoor: '#4b3f30',
@@ -443,6 +535,8 @@ const World = (() => {
   let cooking = new Map();    // campfire tile index -> [seconds cooked, ...] for each piece of meat
   let tents = new Map();      // tent tile index -> { bed, furnace } (what is inside each tent)
   let ring = null;            // a secret...
+  let crops = new Map();      // planted garlic tile index -> seconds in this growing stage
+  let gates = new Map();      // gate tile index -> { dir, open, locked, side, swing }
   let fading = [];            // broken things slowly disappearing
 
   // Small repeatable random number generator (same seed = same forest).
@@ -495,9 +589,19 @@ const World = (() => {
       tiles[y * W.width + x] = i === 1 ? TILES.coal : TILES.stone;
     }
     ensureIron(makeRandom(seed + 5));
+    // Wild garlic: small patches with white flowers.
+    const grand = makeRandom(seed + 13);
+    for (let g = 0; g < CONFIG.garlic.wildPatches; g++) {
+      const gx = Math.floor(grand() * W.width), gy = Math.floor(grand() * W.height);
+      for (let k = 0; k < 3; k++) {
+        const x = gx + Math.floor(grand() * 3) - 1, y = gy + Math.floor(grand() * 3) - 1;
+        if (tileAt(x, y) === GRASS && !isBorder(x, y) && !nearStart(x, y, 1)) tiles[y * W.width + x] = TILES.garlicWild;
+      }
+    }
+    ensureGarlic(makeRandom(seed + 17));
     makeRing(makeRandom(seed + 9));
     wantedTrees = countTrees();
-    damage = new Map(); fading = []; cooking = new Map(); tents = new Map();
+    damage = new Map(); fading = []; cooking = new Map(); tents = new Map(); crops = new Map(); gates = new Map();
   }
 
   function countTrees() { let n = 0; for (const t of tiles) if (t === TREE) n++; return n; }
@@ -518,7 +622,8 @@ const World = (() => {
 
   // Is this pixel position blocked?
   function isSolidAt(px, py) {
-    const b = blockAt(Math.floor(px / W.tileSize), Math.floor(py / W.tileSize));
+    const tx = Math.floor(px / W.tileSize), ty = Math.floor(py / W.tileSize), b = blockAt(tx, ty);
+    if (b && b.gate) { const g = gates.get(ty * W.width + tx); return !(g && g.open); }   // an open gate lets you through
     return !!(b && b.solid);
   }
 
@@ -540,6 +645,13 @@ const World = (() => {
     if (dmg < B[name].hits) { damage.set(i, dmg); return null; }
     damage.delete(i);
     tiles[i] = GRASS;
+    crops.delete(i);
+    const partner = partnerOf(i);                // a gate: both squares go together
+    if (partner >= 0 && NAMES[tiles[partner]] === 'gate') {
+      tiles[partner] = GRASS; damage.delete(partner);
+      fading.push({ tx: partner % W.width, ty: Math.floor(partner / W.width), name, time: CONFIG.actions.fadeTime });
+    }
+    gates.delete(i); gates.delete(partner);
     fading.push({ tx, ty, name, time: CONFIG.actions.fadeTime });
     // A bed inside a tent you break comes back too.
     const inside = tents.get(i);
@@ -565,6 +677,7 @@ const World = (() => {
   function place(tx, ty, name) {
     if (isBorder(tx, ty) || tileAt(tx, ty) !== GRASS) return false;
     tiles[ty * W.width + tx] = TILES[name];
+    if (name === 'garlic0') crops.set(ty * W.width + tx, 0);   // planted garlic starts growing
     return true;
   }
 
@@ -677,6 +790,88 @@ const World = (() => {
     }
   }
 
+  // There is always some wild garlic, and a little near the start (5–10 squares away).
+  function ensureGarlic(rand, farFrom) {
+    const G = CONFIG.garlic, ts = W.tileSize, start = spawnPoint();
+    const far = (x, y) => !farFrom || Math.hypot((x + 0.5) * ts - farFrom.x, (y + 0.5) * ts - farFrom.y) > W.farAway;
+    const ok = (x, y) => tileAt(x, y) === GRASS && !isBorder(x, y) && far(x, y);
+    let count = 0, near = 0;
+    for (let y = 0; y < W.height; y++) for (let x = 0; x < W.width; x++)
+      if (tiles[y * W.width + x] === TILES.garlicWild) {
+        count++;
+        if (Math.hypot((x + 0.5) * ts - start.x, (y + 0.5) * ts - start.y) < 10 * ts) near++;
+      }
+    for (let tries = 0; near < G.wildNearStart && tries < 400; tries++) {
+      const a = rand() * Math.PI * 2, d = 5 + rand() * 5;
+      const x = Math.floor(start.x / ts + Math.cos(a) * d), y = Math.floor(start.y / ts + Math.sin(a) * d);
+      if (ok(x, y)) { tiles[y * W.width + x] = TILES.garlicWild; near++; count++; }
+    }
+    for (let tries = 0; count < G.minWild && tries < 4000; tries++) {
+      const x = Math.floor(rand() * W.width), y = Math.floor(rand() * W.height);
+      if (ok(x, y) && nothingBuiltNear(x, y, 2)) { tiles[y * W.width + x] = TILES.garlicWild; count++; }
+    }
+  }
+
+  // Planted garlic grows: sprout → green leaves → ripe.
+  function growCrops(dt) {
+    crops.forEach((t, i) => {
+      t += dt;
+      const name = NAMES[tiles[i]];
+      if (name !== 'garlic0' && name !== 'garlic1') { crops.delete(i); return; }
+      if (t >= CONFIG.garlic.stageTime) {
+        tiles[i] = name === 'garlic0' ? TILES.garlic1 : TILES.garlic2;
+        if (tiles[i] === TILES.garlic2) { crops.delete(i); return; }
+        t = 0;
+      }
+      crops.set(i, t);
+    });
+  }
+
+  // ----- Gates -----
+  // A gate is 2 squares wide: one door on each square (part 0 = left or top, part 1 = right or bottom).
+  // dir 'h': the gate runs left-right (you walk through it up/down). dir 'v': it runs up-down.
+  // side: which way the doors swing open (+1 or -1 along the walking direction), always away from you.
+  function partnerOf(i) {
+    const g = gates.get(i);
+    if (!g || g.part === undefined) return -1;
+    const step = g.dir === 'h' ? 1 : W.width;
+    return g.part === 0 ? i + step : i - step;
+  }
+  // Place a 2-square gate: (tx, ty) is the left or top square. Returns false if there is no space.
+  function placeGate(tx, ty, dir) {
+    const x2 = dir === 'h' ? tx + 1 : tx, y2 = dir === 'h' ? ty : ty + 1;
+    if (isBorder(tx, ty) || isBorder(x2, y2) || tileAt(tx, ty) !== GRASS || tileAt(x2, y2) !== GRASS) return false;
+    tiles[ty * W.width + tx] = TILES.gate; tiles[y2 * W.width + x2] = TILES.gate;
+    const base = { dir, open: false, locked: false, side: 1, swing: 0 };
+    gates.set(ty * W.width + tx, Object.assign({ part: 0 }, base));
+    gates.set(y2 * W.width + x2, Object.assign({ part: 1 }, base));
+    return true;
+  }
+  function gateAt(tx, ty) { return nameAt(tx, ty) === 'gate' ? gates.get(ty * W.width + tx) || null : null; }
+  // Both squares of the gate: [{ tx, ty }, ...]
+  function gateSquares(tx, ty) {
+    const i = ty * W.width + tx, j = partnerOf(i), out = [{ tx, ty }];
+    if (j >= 0 && gates.has(j)) out.push({ tx: j % W.width, ty: Math.floor(j / W.width) });
+    return out;
+  }
+  // Change both doors together (open, locked, side).
+  function setGate(tx, ty, changes) {
+    gateSquares(tx, ty).forEach(t => Object.assign(gates.get(t.ty * W.width + t.tx), changes));
+  }
+  function updateGates(dt) {
+    gates.forEach(g => {
+      const target = g.open ? 1 : 0, step = dt / CONFIG.gate.swingTime;
+      g.swing = g.swing < target ? Math.min(target, g.swing + step) : Math.max(target, g.swing - step);
+    });
+  }
+
+  // Is this point in the light of a campfire or a torch? (Vampires stay out of the light.)
+  function inLight(px, py) {
+    const V = CONFIG.vampire;
+    return nearestDistance(px, py, 'campfire', V.campfireLight) < V.campfireLight ||
+           nearestDistance(px, py, 'torch', V.torchLight) < V.torchLight;
+  }
+
   // Put one piece of raw meat on a campfire. Returns false if it is full.
   function addCooking(tx, ty) {
     const i = ty * W.width + tx, list = cooking.get(i) || [];
@@ -688,6 +883,8 @@ const World = (() => {
 
   function update(dt) {
     cookFurnaces(dt);
+    growCrops(dt);
+    updateGates(dt);
     // Meat on campfires cooks slowly, then drops next to the fire as cooked meat.
     cooking.forEach((list, i) => {
       for (let k = list.length - 1; k >= 0; k--) {
@@ -708,6 +905,7 @@ const World = (() => {
     if (regrowTimer >= W.regrowEvery) {
       regrowTimer = 0;
       ensureIron(Math.random, Mechanics.player);
+      ensureGarlic(Math.random, Mechanics.player);
       if (countTrees() < wantedTrees) {
         const spot = randomFarGrass(Math.random);
         if (spot && nothingBuiltNear(spot.tx, spot.ty, 3) && !Animals.blocksAt(spot.x, spot.y, W.tileSize / 2, null))
@@ -737,7 +935,8 @@ const World = (() => {
     for (let i = 0; i < tiles.length; i++) s += String.fromCharCode(tiles[i]);
     // names: what each tile number means, so new kinds of blocks never mix up old saves.
     return { seed, tiles: btoa(s), names: NAMES, wantedTrees, cooking: Array.from(cooking.entries()),
-             tents: Array.from(tents.entries()), ring };
+             tents: Array.from(tents.entries()), ring, crops: Array.from(crops.entries()),
+             gates: Array.from(gates.entries()) };
   }
   // Tile numbers used by older saves that did not store names.
   const OLD_NAMES = ['grass', 'tree', 'stone', 'coal', 'table', 'tent', 'bed', 'campfire', 'torch', 'woodWall', 'stoneWall'];
@@ -759,6 +958,10 @@ const World = (() => {
     (d.tentBeds || []).forEach(i => { if (!tents.has(i)) tents.set(i, { bed: true, furnace: null }); });  // older saves
     ring = d.ring || null;
     if (!ring) makeRing(makeRandom(seed + 9));
+    crops = new Map(d.crops || []);
+    gates = new Map(d.gates || []);
+    // Older saves have no wild garlic: add some.
+    ensureGarlic(makeRandom(seed + 17));
     // Older saves may have little or no iron: make sure there is enough.
     ensureIron(makeRandom(seed + 5));
   }
@@ -869,12 +1072,65 @@ const World = (() => {
       ctx.fillRect(sx + off, sy + r * 10, 2, 10);
     }
   }
+  // Garlic, seen from above: green leaves, white flowers (wild) or a white bulb (ripe).
+  function leaves(ctx, cx, cy, n, len) {
+    ctx.fillStyle = C.garlicLeaf;
+    for (let i = 0; i < n; i++) {
+      const a = i / n * Math.PI * 2 + 0.4;
+      for (let d = 2; d < len; d += 2) ctx.fillRect(Math.round(cx + Math.cos(a) * d) - 1, Math.round(cy + Math.sin(a) * d) - 1, 3, 3);
+    }
+  }
+  function drawGarlicWild(ctx, sx, sy, tx, ty) {
+    const ts = W.tileSize;
+    for (let k = 0; k < 3; k++) {
+      const cx = sx + 8 + hash(tx, ty, 20 + k) * (ts - 16), cy = sy + 8 + hash(tx, ty, 30 + k) * (ts - 16);
+      leaves(ctx, cx, cy, 5, 9);
+      ctx.fillStyle = C.garlicFlower;
+      ctx.fillRect(Math.round(cx) - 3, Math.round(cy) - 3, 6, 6);
+      ctx.fillStyle = C.garlicStripe; ctx.fillRect(Math.round(cx) - 1, Math.round(cy) - 1, 2, 2);
+    }
+  }
+  function soil(ctx, sx, sy) { ctx.fillStyle = C.soil; ctx.fillRect(sx + 6, sy + 6, W.tileSize - 12, W.tileSize - 12); }
+  function drawGarlic0(ctx, sx, sy) { soil(ctx, sx, sy); leaves(ctx, sx + 20, sy + 20, 3, 6); }
+  function drawGarlic1(ctx, sx, sy) { soil(ctx, sx, sy); leaves(ctx, sx + 20, sy + 20, 5, 12); }
+  function drawGarlic2(ctx, sx, sy) {
+    soil(ctx, sx, sy); leaves(ctx, sx + 20, sy + 20, 6, 15);
+    ctx.fillStyle = C.garlicBulb; ctx.fillRect(sx + 14, sy + 14, 12, 12);
+    ctx.fillStyle = C.garlicStripe; ctx.fillRect(sx + 17, sy + 15, 2, 10); ctx.fillRect(sx + 22, sy + 15, 2, 10);
+  }
+  // A farm gate seen from above: a post at each end and two doors that swing open away from you.
+  function drawGate(ctx, sx, sy, tx, ty) {
+    const ts = W.tileSize, g = gates.get(ty * W.width + tx) || { dir: 'h', swing: 0, side: 1, locked: false };
+    ctx.save();
+    ctx.translate(sx + ts / 2, sy + ts / 2);
+    let side = g.side;
+    if (g.dir === 'v') { ctx.rotate(Math.PI / 2); side = -side; }   // draw the same gate, turned
+    const a = g.swing * Math.PI / 2 * side, half = ts / 2;
+    const left = g.part !== 1;                                         // this square's door is hinged on the left (or top)
+    const hinge = left ? -half + 3 : half - 3, door = ts - 4;          // one long door per square
+    ctx.fillStyle = C.treeShadow; ctx.fillRect(-half + 2, -1, ts, 6);
+    ctx.save(); ctx.translate(hinge, 0); ctx.rotate(left ? a : -a);
+    const x0 = left ? 0 : -door;
+    ctx.fillStyle = C.gateWood;  ctx.fillRect(x0, -4, door, 3); ctx.fillRect(x0, 2, door, 3);   // two rails
+    ctx.fillStyle = C.gateBrace;
+    for (const k of [0.05, 0.5, 0.92]) ctx.fillRect(x0 + Math.round(door * k), -5, 3, 11);    // upright slats
+    ctx.restore();
+    ctx.fillStyle = C.gatePost;                                        // the post the door hangs on
+    ctx.fillRect(left ? -half : half - 6, -6, 6, 12);
+    if (g.locked && g.swing === 0 && !left) {                          // a small padlock where the two doors meet
+      ctx.fillStyle = C.lockDark; ctx.fillRect(-half - 3, -8, 6, 3);
+      ctx.fillStyle = C.lock;     ctx.fillRect(-half - 4, -5, 8, 8);
+      ctx.fillStyle = C.lockDark; ctx.fillRect(-half - 1, -3, 2, 3);
+    }
+    ctx.restore();
+  }
   function drawWoodWall(ctx, sx, sy, tx, ty)  { drawWall(ctx, sx, sy, tx, ty, C.woodWall, C.woodWallLine); }
   function drawStoneWall(ctx, sx, sy, tx, ty) { drawWall(ctx, sx, sy, tx, ty, C.stoneWall, C.stoneWallLine); }
 
   const drawTile = {
     tree: drawTree, stone: drawStone, coal: drawCoal, iron: drawIron, table: drawTable, tent: drawTent,
-    bed: drawBed, campfire: drawCampfire, torch: drawTorch, woodWall: drawWoodWall, stoneWall: drawStoneWall
+    bed: drawBed, campfire: drawCampfire, torch: drawTorch, woodWall: drawWoodWall, stoneWall: drawStoneWall,
+    garlicWild: drawGarlicWild, garlic0: drawGarlic0, garlic1: drawGarlic1, garlic2: drawGarlic2, gate: drawGate
   };
 
   // Draw only the tiles that are on screen.
@@ -933,7 +1189,7 @@ const World = (() => {
 
   return { generate, spawnPoint, isSolidAt, isBorder, tileAt, nameAt, blockAt, tileOf, breakableAt,
            hitBlock, place, hasNear, nearestDistance, addCooking, tentHasBed, setTentBed, tentData, cookFurnaces,
-           ringCenter, update, draw, lights, drawHitBar, makeRandom, randomFarGrass,
+           ringCenter, growCrops, inLight, placeGate, gateAt, gateSquares, setGate, update, draw, lights, drawHitBar, makeRandom, randomFarGrass,
            save, load, TILES, GRASS, getSeed: () => seed };
 })();
 </script>
@@ -994,8 +1250,9 @@ const Animals = (() => {
     });
   }
 
-  function canStand(a, x, y) {
+  function canStand(a, x, y, ignoreLight) {
     const h = kindOf(a).hitbox / 2;
+    if (kindOf(a).avoidLight && !ignoreLight && World.inLight(x, y)) return false;   // night creatures stay out of the light
     if (World.isSolidAt(x - h, y - h) || World.isSolidAt(x + h, y - h) ||
         World.isSolidAt(x - h, y + h) || World.isSolidAt(x + h, y + h)) return false;
     if (blocksAt(x, y, h, a)) return false;
@@ -1008,12 +1265,12 @@ const Animals = (() => {
     a.mode = 'alert'; a.alertT = A.alertTime; a.biteT = A.biteEvery * 0.6; a.walking = false;
   }
   function face(a, pl) { a.targetAngle = Math.atan2(pl.y - a.y, pl.x - a.x) + Math.PI / 2; }
-  function moveToward(a, pl, step) {
+  function moveToward(a, pl, step, ignoreLight) {      // a negative step moves away
     const d = Math.hypot(pl.x - a.x, pl.y - a.y) || 1;
     const dx = (pl.x - a.x) / d * step, dy = (pl.y - a.y) / d * step;
-    if (canStand(a, a.x + dx, a.y + dy)) { a.x += dx; a.y += dy; }
-    else if (canStand(a, a.x + dx, a.y)) a.x += dx;          // slide around trees
-    else if (canStand(a, a.x, a.y + dy)) a.y += dy;
+    if (canStand(a, a.x + dx, a.y + dy, ignoreLight)) { a.x += dx; a.y += dy; }
+    else if (canStand(a, a.x + dx, a.y, ignoreLight)) a.x += dx;          // slide around trees
+    else if (canStand(a, a.x, a.y + dy, ignoreLight)) a.y += dy;
   }
   function calmAll() { list.forEach(a => { a.mode = 'calm'; a.walking = false; }); }
 
@@ -1026,10 +1283,13 @@ const Animals = (() => {
       const dist = Math.hypot(pl.x - a.x, pl.y - a.y);
       a.heartT = Math.max(0, a.heartT - dt);
       if (peaceful || a.pet || a.tame > 0) a.mode = 'calm';     // a wolf you have fed never attacks you
+      if (k.behavior === 'vampire' && vampireStep(a, pl, dist, dt)) return;
+      if (k.behavior === 'night' && nightStep(a, pl, dist, dt)) return;
       // Hunters notice you when you come close.
-      if (!peaceful && k.behavior === 'hunter' && !(a.tame > 0) && a.mode === 'calm' && dist < A.noticeRadius) startAlert(a);
+      const hunts = k.behavior === 'hunter' || k.behavior === 'vampire' || k.behavior === 'night';
+      if (!peaceful && hunts && !(a.tame > 0) && a.mode === 'calm' && dist < (k.notice || A.noticeRadius)) startAlert(a);
       // Far enough away: the animal gives up and becomes calm again.
-      if (a.mode !== 'calm' && dist > A.giveUpDistance) {
+      if (a.mode !== 'calm' && dist > (k.giveUp || A.giveUpDistance)) {
         a.mode = 'calm'; a.walking = false; a.timer = between(A.restTimeMin, A.restTimeMax);
       }
       if (a.mode === 'alert') {
@@ -1039,7 +1299,14 @@ const Animals = (() => {
       } else if (a.mode === 'chase') {
         face(a, pl);
         const reach = (k.hitbox + CONFIG.player.hitbox) / 2 * 1.42 + 6;
-        if (dist > reach) moveToward(a, pl, k.chaseSpeed * dt);
+        if (k.behavior === 'vampire' && Mechanics.holding('garlic') && dist < CONFIG.vampire.keepAway) {
+          moveToward(a, pl, -k.chaseSpeed * dt);       // holding garlic: the vampire backs away
+          a.biteT = Math.max(a.biteT, 0.5);
+        } else if (k.behavior === 'vampire' && Mechanics.holding('garlic') && dist < CONFIG.vampire.keepAway + 25) {
+          // it waits at a safe distance
+        } else if (k.ranged) {
+          rangedStep(a, pl, dist, dt);                 // a skeleton keeps its distance and throws bones
+        } else if (dist > reach) moveToward(a, pl, k.chaseSpeed * dt);
         else {
           a.biteT -= dt;
           if (a.biteT <= 0) { a.biteT = A.biteEvery; Mechanics.hurt(k.damage, k.name); }
@@ -1054,6 +1321,159 @@ const Animals = (() => {
       a.angle += diff * Math.min(1, dt * A.turnSpeed);
     });
     afterUpdate(dt);
+  }
+
+  // ----- Night creatures: zombies, skeletons and (on full-moon nights) a werewolf -----
+  const N = CONFIG.night;
+  const isNightKind = a => kindOf(a).behavior === 'night';
+  function isFullMoon(d = Time.day()) { return d >= N.fullMoonFirst && (d - N.fullMoonFirst) % N.fullMoonEvery === 0; }
+  let sunriseSaid = 0;
+  // Returns true when this creature is done for this frame.
+  function nightStep(a, pl, dist, dt) {
+    if (Time.nightAmount() < 0.4) {                      // sunrise: it slowly fades away
+      a.dying = true; a.fade = CONFIG.actions.fadeTime * 2;
+      if (sunriseSaid !== Time.day()) { sunriseSaid = Time.day(); Hotbar.say('The sun is rising. The night creatures fade away.'); }
+      return true;
+    }
+    if (World.inLight(a.x, a.y)) {                       // caught in the light: it hurries out of it
+      a.mode = 'calm'; a.walking = false;
+      moveToward(a, pl, -kindOf(a).chaseSpeed * dt, true);
+      return true;
+    }
+    return false;
+  }
+  // A skeleton walks to a safe distance and throws a bone now and then (slow, you can see it coming).
+  let bones = [];
+  function rangedStep(a, pl, dist, dt) {
+    const k = kindOf(a), [near, far] = N.keepDistance;
+    if (dist > far) moveToward(a, pl, k.chaseSpeed * dt);
+    else if (dist < near) moveToward(a, pl, -k.chaseSpeed * dt);
+    a.biteT -= dt;
+    if (a.biteT <= 0 && dist < N.boneRange) {
+      a.biteT = N.boneEvery;
+      const d = dist || 1;
+      bones.push({ x: a.x, y: a.y, dx: (pl.x - a.x) / d, dy: (pl.y - a.y) / d, t: 0, d: 0, from: k.name, damage: k.damage });
+      Sound.toss();
+    }
+  }
+  function updateBones(dt) {
+    const pl = Mechanics.player, ph = CONFIG.player.hitbox / 2 + 3;
+    bones.forEach(b => {
+      const step = N.boneSpeed * dt;
+      b.x += b.dx * step; b.y += b.dy * step; b.d += step; b.t += dt;
+      if (Math.abs(b.x - pl.x) < ph && Math.abs(b.y - pl.y) < ph) { b.done = true; Mechanics.hurt(b.damage, b.from); return; }
+      if (World.isSolidAt(b.x, b.y) || b.d > N.boneRange + 60) b.done = true;   // trees, walls and closed gates stop bones
+    });
+    bones = bones.filter(b => !b.done);
+  }
+  function drawBones(ctx, camX, camY) {
+    bones.forEach(b => {
+      ctx.save(); ctx.translate(Math.round(b.x - camX), Math.round(b.y - camY)); ctx.rotate(b.t * 4);   // a slow spin
+      ctx.fillStyle = C.boneWhite; ctx.fillRect(-6, -1.5, 12, 3);
+      ctx.fillRect(-8, -3, 3, 3); ctx.fillRect(-8, 0, 3, 3); ctx.fillRect(5, -3, 3, 3); ctx.fillRect(5, 0, 3, 3);
+      ctx.restore();
+    });
+  }
+  // New night creatures appear now and then, far from you and never in the light.
+  let nightTimer = 0, wereDay = 0, moonWarned = 0;
+  function spawnNight(dt) {
+    if (Screens.peaceful()) return;
+    const day = Time.day();
+    if (isFullMoon() && moonWarned !== day && Time.label() === 'Night is coming') {   // a calm warning in the evening
+      moonWarned = day;
+      Hotbar.say(Animals.isVampireNight()
+        ? 'Tonight is a full moon, and a vampire may come out too. Stay near your light!'
+        : 'Tonight is a full moon. A werewolf may come out. Stay near your light!');
+    }
+    if (day < N.firstNight || Time.nightAmount() < N.startAt) { nightTimer = N.spawnEvery; return; }   // the first ones come out right away
+    if (isFullMoon() && wereDay !== day && trySpawn('werewolf')) {
+      wereDay = day;
+      Sound.howl();
+      Hotbar.say('A werewolf is out tonight! It is strong: 16 hits, or 4 rifle shots. You are faster than it.');
+    }
+    nightTimer += dt;
+    if (nightTimer < N.spawnEvery) return;
+    nightTimer = 0;
+    const alive = kind => list.filter(a => a.kind === kind && !a.dying).length;
+    for (let n = 0; n < N.perSpawn; n++) {
+      if (alive('zombie') < N.maxZombies && (alive('skeleton') >= N.maxSkeletons || Math.random() < 0.6)) trySpawn('zombie');
+      else if (alive('skeleton') < N.maxSkeletons) trySpawn('skeleton');
+    }
+  }
+  function trySpawn(kind) {
+    const pl = Mechanics.player, D = N.spawnDistance;
+    for (let tries = 0; tries < 40; tries++) {
+      const ang = Math.random() * Math.PI * 2, x = pl.x + Math.cos(ang) * D, y = pl.y + Math.sin(ang) * D;
+      const t = World.tileOf(x, y);
+      if (World.isBorder(t.tx, t.ty)) continue;
+      const m = make(kind, x, y);
+      if (!canStand(m, x, y)) continue;
+      list.push(m);
+      return true;
+    }
+    return false;
+  }
+
+  // ----- The vampire -----
+  // Returns true when the vampire is done for this frame.
+  function vampireStep(a, pl, dist, dt) {
+    if (Time.nightAmount() < CONFIG.vampire.leaveAt) { leave(a, false); return true; }   // morning: it flies away
+    if (World.inLight(a.x, a.y)) {                       // caught in the light: it hurries out of it
+      a.mode = 'calm'; a.walking = false;
+      moveToward(a, pl, -kindOf(a).chaseSpeed * dt, true);
+      return true;
+    }
+    return false;
+  }
+  let bats = [];
+  function leave(a, beaten) {
+    a.dying = true; a.fade = CONFIG.actions.fadeTime;
+    for (let i = 0; i < 9; i++) {
+      const ang = Math.random() * Math.PI * 2, sp = 40 + Math.random() * 50;
+      bats.push({ x: a.x, y: a.y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, t: 0, life: 2 + Math.random() });
+    }
+    Sound.bats();
+    Hotbar.say(beaten ? 'You beat the vampire! It turns into bats and flies away.'
+                      : 'The sun is rising. The vampire turns into bats and flies away.');
+  }
+  function isVampireNight() {
+    const V = CONFIG.vampire, d = Time.day();
+    return d >= V.firstNight && (d - V.firstNight) % V.everyNights === 0;
+  }
+  let spawnedDay = 0, warnedDay = 0;
+  function spawnVampire() {
+    if (!isVampireNight() || Screens.peaceful()) return;
+    const day = Time.day();
+    if (warnedDay !== day && Time.label() === 'Night is coming') {      // a calm warning in the evening
+      warnedDay = day;
+      Hotbar.say('Tonight a vampire may come out. Only garlic hurts it. Get your garlic ready!');
+    }
+    if (spawnedDay === day || Time.nightAmount() < 0.7 || list.some(a => a.kind === 'vampire' && !a.dying)) return;
+    const pl = Mechanics.player, D = CONFIG.vampire.spawnDistance;
+    for (let tries = 0; tries < 40; tries++) {
+      const ang = Math.random() * Math.PI * 2, x = pl.x + Math.cos(ang) * D, y = pl.y + Math.sin(ang) * D;
+      const t = World.tileOf(x, y);
+      if (World.isBorder(t.tx, t.ty)) continue;
+      const v = make('vampire', x, y);
+      if (!canStand(v, x, y)) continue;
+      list.push(v); spawnedDay = day;
+      Hotbar.say('A vampire is out tonight. Hold garlic to keep it away, or use your garlic slingshot.');
+      return;
+    }
+  }
+  function updateBats(dt) {
+    bats.forEach(b => { b.t += dt; b.x += b.vx * dt; b.y += b.vy * dt; b.vx *= 1.01; b.vy *= 1.01; });
+    bats = bats.filter(b => b.t < b.life);
+  }
+  function drawBats(ctx, camX, camY) {
+    bats.forEach(b => {
+      ctx.globalAlpha = Math.max(0, 1 - b.t / b.life);
+      const x = Math.round(b.x - camX), y = Math.round(b.y - camY), up = Math.sin(b.t * 9) > 0 ? -2 : 1;   // slow wing beat
+      ctx.fillStyle = C.bat;
+      ctx.fillRect(x - 2, y - 2, 4, 4);
+      ctx.fillRect(x - 7, y - 2 + up, 5, 2); ctx.fillRect(x + 2, y - 2 + up, 5, 2);
+      ctx.globalAlpha = 1;
+    });
   }
 
   // Your dog walks after you and sits down when it is close.
@@ -1100,6 +1520,10 @@ const Animals = (() => {
 
   function afterUpdate(dt) {
     list = list.filter(a => !a.dying || a.fade > 0);
+    spawnVampire();
+    spawnNight(dt);
+    updateBones(dt);
+    updateBats(dt);
 
     // New animals appear far away when there are too few.
     respawnTimer += dt;
@@ -1129,7 +1553,9 @@ const Animals = (() => {
   }
 
   // A hit with some power. Returns its drops when the hunt is done, otherwise null.
-  function hit(a, power) {
+  let lastNoFeel = -1e9;
+  function hit(a, power, byGarlic) {
+    if (kindOf(a).garlicOnly) return hitVampire(a, byGarlic);
     a.hits += power;
     a.walking = false;
     a.timer = between(A.restTimeMin, A.restTimeMax);
@@ -1141,8 +1567,25 @@ const Animals = (() => {
     return kindOf(a).drops;
   }
 
+  // Only garlic hurts the vampire. Each hit makes it flinch and step back.
+  function hitVampire(a, byGarlic) {
+    if (!Screens.peaceful() && a.mode === 'calm') startAlert(a);
+    if (!byGarlic) {
+      const now = performance.now();
+      if (now - lastNoFeel > 2500) { lastNoFeel = now; Hotbar.say("The vampire doesn't feel it. Try garlic!"); }
+      return null;
+    }
+    a.hits += 1;
+    moveToward(a, Mechanics.player, -36);                // flinch: it steps back
+    a.mode = 'alert'; a.alertT = A.alertTime;           // and waits a moment
+    if (a.hits < kindOf(a).hits) { Hotbar.say(`The vampire hates garlic! (${a.hits}/${kindOf(a).hits})`); return null; }
+    leave(a, true);
+    Mechanics.stats().vampires = (Mechanics.stats().vampires || 0) + 1;
+    return Inventory.count('cape') ? { garlic: 3 } : { cape: 1 };
+  }
+
   function save() {
-    return list.filter(a => !a.dying).map(a => ({ kind: a.kind, x: Math.round(a.x), y: Math.round(a.y), tame: a.tame, pet: a.pet }));
+    return list.filter(a => !a.dying && a.kind !== 'vampire' && !isNightKind(a)).map(a => ({ kind: a.kind, x: Math.round(a.x), y: Math.round(a.y), tame: a.tame, pet: a.pet }));
   }
   function load(d) {
     list = d.filter(a => A.kinds[a.kind]).map(a => Object.assign(make(a.kind, a.x, a.y), { tame: a.tame || 0, pet: !!a.pet }));
@@ -1208,6 +1651,49 @@ const Animals = (() => {
       rect(ctx, C.bearDark,  -3.5, -9,   2,   2,   p);    // round ears
       rect(ctx, C.bearDark,   1.5, -9,   2,   2,   p);
     },
+    zombie(ctx, p) {                                      // arms reaching forward, torn blue shirt
+      rect(ctx, C.zombieSkin,      -4.5, -7,   1.8, 5,  p);  // arms
+      rect(ctx, C.zombieSkin,       2.7, -7,   1.8, 5,  p);
+      rect(ctx, C.zombieShirt,     -4.5, -2.5, 9,   5,  p);  // shoulders
+      rect(ctx, C.zombieShirtDark, -1.5,  1.5, 3,   1,  p);  // torn edge
+      rect(ctx, C.zombieSkin,      -2.5, -3.5, 5,   5,  p);  // head
+      rect(ctx, C.zombieHair,      -2.5,  0.5, 5,   1,  p);  // messy hair at the back
+    },
+    skeleton(ctx, p) {                                    // white bones, thin arms
+      rect(ctx, C.boneShade,  -4.5, -2,   1.2, 5,   p);    // arms
+      rect(ctx, C.boneShade,   3.3, -2,   1.2, 5,   p);
+      rect(ctx, C.boneWhite,  -4,   -2,   8,   1.2, p);    // shoulders
+      rect(ctx, C.boneShade,  -0.6, -1,   1.2, 5,   p);    // spine
+      rect(ctx, C.boneWhite,  -2.5,  0.5, 5,   0.9, p);    // ribs
+      rect(ctx, C.boneWhite,  -2.5,  2.2, 5,   0.9, p);
+      rect(ctx, C.boneWhite,  -2.5, -6,   5,   4.5, p);    // skull
+      rect(ctx, C.boneDark,   -1.8, -5.2, 1.2, 1.2, p);    // eyes
+      rect(ctx, C.boneDark,    0.6, -5.2, 1.2, 1.2, p);
+    },
+    werewolf(ctx, p) {                                    // a big, shaggy wolf-man
+      rect(ctx, C.wereDark,  -1,    5,   2,   4,   p);     // tail
+      rect(ctx, C.wereFur,   -4.5, -3,   9,   9,   p);     // big shoulders
+      rect(ctx, C.wereDark,  -2,   -2,   4,   6,   p);     // dark back
+      rect(ctx, C.wereFur,   -5.5, -5,   2,   4,   p);     // arms with claws
+      rect(ctx, C.wereFur,    3.5, -5,   2,   4,   p);
+      rect(ctx, C.wereLight, -5.5, -6,   2,   1,   p);
+      rect(ctx, C.wereLight,  3.5, -6,   2,   1,   p);
+      rect(ctx, C.wereFur,   -2.5, -8,   5,   5,   p);     // head
+      rect(ctx, C.wereLight, -1,   -9.5, 2,   2,   p);     // snout
+      rect(ctx, C.wereDark,  -2.8, -9,   1.5, 2,   p);     // pointed ears
+      rect(ctx, C.wereDark,   1.3, -9,   1.5, 2,   p);
+      rect(ctx, C.wereEye,   -1.6, -7,   1,   1,   p);     // yellow eyes (steady, no blinking)
+      rect(ctx, C.wereEye,    0.6, -7,   1,   1,   p);
+    },
+    vampire(ctx, p) {                                     // seen from above: a wide cape, pale face
+      rect(ctx, C.vampCape,   -5.5, -2,   11,  9,   p);    // cape
+      rect(ctx, C.vampLining, -5.5,  6,   11,  1,   p);    // red lining at the bottom
+      rect(ctx, C.vampLining, -4,   -2.5,  1.5, 2, p);    // high collar
+      rect(ctx, C.vampLining,  2.5, -2.5,  1.5, 2, p);
+      rect(ctx, C.vampFace,   -2.5, -6,   5,   5,   p);    // pale face
+      rect(ctx, C.vampHair,   -2.5, -6,   5,   2,   p);    // dark hair
+      rect(ctx, C.vampHair,   -0.5, -6,   1,   3,   p);    // pointed hairline
+    },
     moose(ctx, p) {
       rect(ctx, C.moose,       -3.5, -4,   7,   11,  p);  // big body
       rect(ctx, C.mooseDark,   -3.5, -4,   7,   3,   p);  // dark shoulders
@@ -1260,10 +1746,15 @@ const Animals = (() => {
       if (sx < -60 || sy < -60 || sx > viewW + 60 || sy > viewH + 60) return;
       drawAnimal(ctx, a, sx, sy);
     });
+    drawBones(ctx, camX, camY);
+    drawBats(ctx, camX, camY);
   }
 
   return { init, update, draw, findNear, hit, blocksAt, save, load, calmAll, canTame, feed,
-           hasPet: () => list.some(a => a.pet && !a.dying), list: () => list };
+           hasPet: () => list.some(a => a.pet && !a.dying), list: () => list, isVampireNight, isFullMoon,
+           // A small soft light around night creatures, so you can see them coming in the dark.
+           lights: (camX, camY) => list.filter(a => !a.dying && (isNightKind(a) || a.kind === 'vampire'))
+                                       .map(a => ({ x: a.x - camX, y: a.y - camY, r: 55 })) };
 })();
 </script>
 
@@ -1525,6 +2016,46 @@ const Mechanics = (() => {
   const RF = CONFIG.rifle;
   let loaded = 0, shotLine = null, lastEmptyMessage = -1e9;
   function holdingRifle() { const s = Inventory.selectedItem(); return !!(s && CONFIG.items[s.id].gun); }
+  function holdingSling() { const s = Inventory.selectedItem(); return !!(s && CONFIG.items[s.id].sling); }
+  function holding(id) { const s = Inventory.selectedItem(); return !!(s && s.id === id); }
+  // The garlic slingshot: garlic flying through the air (slowly, so you can see it).
+  const SL = CONFIG.slingshot;
+  let garlicShots = [], lastNoGarlic = -1e9;
+  function fireSling() {
+    player.cooldown = SL.cooldown;
+    if (!Inventory.count('garlic')) {
+      const now = performance.now();
+      if (now - lastNoGarlic > 2500) { lastNoGarlic = now; Hotbar.say('No garlic. Pick wild garlic (white flowers) or grow some.'); }
+      return;
+    }
+    Inventory.take('garlic', 1);
+    player.swing = ACT.swingTime;
+    Sound.sling();
+    const a = player.targetAngle - Math.PI / 2, start = P.hitbox / 2 + 4;
+    garlicShots.push({ x: player.x + Math.cos(a) * start, y: player.y + Math.sin(a) * start,
+                       dx: Math.cos(a), dy: Math.sin(a), d: 0 });
+  }
+  function updateSling(dt) {
+    garlicShots.forEach(g => {
+      const step = SL.speed * dt, nx = g.x + g.dx * step, ny = g.y + g.dy * step;
+      const animal = Animals.findNear(nx, ny, 0.45);
+      if (animal) {                                    // a hit: the garlic is used up
+        g.done = true;
+        Sound.splat();
+        const drops = Animals.hit(animal, 1, true);
+        const at = animal.kind === 'vampire' ? player : animal;   // the vampire's gift lands next to you
+        if (drops) Object.entries(drops).forEach(([item, n]) => Drops.spawn(item, n, at.x, at.y));
+        return;
+      }
+      if (World.isSolidAt(nx, ny) || g.d + step > SL.range) {   // a miss: the garlic lands, you can pick it up again
+        g.done = true;
+        Drops.spawn('garlic', 1, g.x, g.y);
+        return;
+      }
+      g.x = nx; g.y = ny; g.d += step;
+    });
+    garlicShots = garlicShots.filter(g => !g.done);
+  }
   let useLock = false;         // true while R is held after using it on a bed or campfire
   const survival = { health: S.maxHealth, hunger: S.maxHunger, hungerT: 0, starveT: 0, healT: 0 };
   let home = null;             // where you wake up (last bed or tent you slept in)
@@ -1639,13 +2170,16 @@ const Mechanics = (() => {
     }
     const target = World.breakableAt(r.x, r.y);
     if (!target) return;
+    const gate = World.gateAt(target.tx, target.ty);
+    if (gate && gate.locked) { Hotbar.say('The gate is locked. Unlock it with your gate key first.'); return; }
     const power = toolPower(target.block.tool);
     if (power === 0) { Hotbar.say('You need a pickaxe for this. Make one at a crafting table.'); return; }
     if (power < (target.block.minPower || 0)) { Hotbar.say('You need a stone pickaxe for iron.'); return; }
-    Sound.hit(target.block.tool === 'pickaxe' ? 'stone' : 'wood');
+    Sound.hit(target.block.plant ? 'plant' : target.block.tool === 'pickaxe' ? 'stone' : 'wood');
     const drops = World.hitBlock(target.tx, target.ty, power);
     if (drops) {
       count('broke', target.name);
+      if (target.name === 'tree') Sound.timber();     // creak, then the tree falls with a soft crash
       const ts = CONFIG.world.tileSize;
       Object.entries(drops).forEach(([item, n]) => Drops.spawn(item, n, (target.tx + 0.5) * ts, (target.ty + 0.5) * ts));
     }
@@ -1661,6 +2195,7 @@ const Mechanics = (() => {
       return null;
     }
     if (!item.placeable) return `${item.name} can't be placed.`;
+    if (item.placeable === 'gate') return placeGate();
     const ts = CONFIG.world.tileSize, h = P.hitbox / 2;
     for (const steps of [1, 2]) {                // if you are too close, try one square further
       const { tx, ty } = frontTile(steps);
@@ -1677,6 +2212,31 @@ const Mechanics = (() => {
     return 'No space here. Face open grass.';
   }
 
+  // Q with a gate: it is 2 squares wide and goes across the way you are facing.
+  // It uses the square in front of you and the one next to it (right first, then left).
+  function placeGate() {
+    const ts = CONFIG.world.tileSize, h = P.hitbox / 2;
+    const a = player.targetAngle - Math.PI / 2, dir = Math.abs(Math.sin(a)) > Math.abs(Math.cos(a)) ? 'h' : 'v';
+    const free = (tx, ty) => {
+      const cx = (tx + 0.5) * ts, cy = (ty + 0.5) * ts;
+      return !(Math.abs(player.x - cx) < h + ts / 2 && Math.abs(player.y - cy) < h + ts / 2) && !Animals.blocksAt(cx, cy, ts / 2, null);
+    };
+    for (const steps of [1, 2]) {
+      const t = frontTile(steps);
+      for (const shift of [0, -1]) {               // the front square is the left/top door, or the right/bottom door
+        const tx = dir === 'h' ? t.tx + shift : t.tx, ty = dir === 'h' ? t.ty : t.ty + shift;
+        const tx2 = dir === 'h' ? tx + 1 : tx, ty2 = dir === 'h' ? ty : ty + 1;
+        if (!free(tx, ty) || !free(tx2, ty2)) continue;
+        if (World.placeGate(tx, ty, dir)) {
+          Inventory.takeOne(Inventory.selected());
+          count('placed', 'gate');
+          return null;
+        }
+      }
+    }
+    return 'A gate needs 2 free squares side by side. Face open grass.';
+  }
+
   // R pressed: sleep if you face a bed or tent, cook if you face a campfire with raw meat.
   // Returns { msg, used }. used = true means R did something, so holding it does not eat.
   function useTap() {
@@ -1686,19 +2246,21 @@ const Mechanics = (() => {
     // The secret ring of mushrooms.
     const rc = World.ringCenter();
     if (rc && Math.hypot(player.x - rc.x, player.y - rc.y) < 30) return { msg: Easter.activate(), used: true };
+    const gateSpot = thing('gate');
+    if (gateSpot) return { msg: useGate(gateSpot.tx, gateSpot.ty), used: true };
     const tent = thing('tent');
     if (tent) { Tent.open(tent.tx, tent.ty); return { msg: null, used: true }; }
     // Feed a wolf (raw or cooked meat). After a few times it becomes your dog.
     const held = Inventory.selectedItem(), heldItem = held && CONFIG.items[held.id];
     const wolf = Animals.findNear(r.x, r.y);
-    if (wolf && Animals.canTame(wolf) && heldItem && heldItem.food) {
+    if (wolf && Animals.canTame(wolf) && heldItem && (heldItem.food || held.id === 'bone')) {   // meat or a bone
       Inventory.takeOne(Inventory.selected());
       const res = Animals.feed(wolf);
       if (res === 'pet') { stats.tamed = (stats.tamed || 0) + 1; return { msg: 'The wolf is now your dog! It will follow you everywhere.', used: true }; }
       return { msg: `The wolf likes the ${heldItem.name.toLowerCase()} (${res}/${CONFIG.animals.taming.feedsNeeded}).`, used: true };
     }
     if (wolf && Animals.canTame(wolf) && !(heldItem && heldItem.gun))
-      return { msg: `Hold meat and press R to feed the wolf. Feed it ${CONFIG.animals.taming.feedsNeeded} times and it becomes your dog.`, used: true };
+      return { msg: `Hold meat or a bone and press R to feed the wolf. Feed it ${CONFIG.animals.taming.feedsNeeded} times and it becomes your dog.`, used: true };
     const bed = spots.find(t => { const b = World.blockAt(t.tx, t.ty); return b && b.sleep; });
     if (bed) {                                   // a bed outside, from an old save
       if (!Time.canSleep()) return { msg: 'You can only sleep in the evening or at night.', used: true };
@@ -1720,6 +2282,32 @@ const Mechanics = (() => {
       return { msg: null, used: false };        // keep holding R to eat
     }
     return { msg: 'R: hold food to eat it, face a campfire to cook, or face your tent to go inside.', used: true };
+  }
+
+  // R at a gate: open or close it. Holding the gate key: lock or unlock it (only when it is closed).
+  function useGate(tx, ty) {
+    const g = World.gateAt(tx, ty), ts = CONFIG.world.tileSize;
+    if (!g) return null;
+    if (holding('key')) {
+      if (g.open) return 'Close the gate first, then lock it.';
+      World.setGate(tx, ty, { locked: !g.locked });
+      Sound.lock();
+      return g.locked ? 'The gate is locked. Nothing can open it now.' : 'The gate is unlocked.';
+    }
+    if (g.locked) return 'The gate is locked. Hold your gate key and press R to unlock it.';
+    const cx = (tx + 0.5) * ts, cy = (ty + 0.5) * ts, h = P.hitbox / 2;
+    if (g.open) {                                    // closing: nobody may stand in the gate
+      const inside = World.gateSquares(tx, ty).some(t => {
+        const x = (t.tx + 0.5) * ts, y = (t.ty + 0.5) * ts;
+        return (Math.abs(player.x - x) < h + ts / 2 && Math.abs(player.y - y) < h + ts / 2) || Animals.blocksAt(x, y, ts / 2, null);
+      });
+      if (inside) return 'Something is in the way. Step out of the gate first.';
+      World.setGate(tx, ty, { open: false });
+    } else {                                         // opening: the doors swing away from you
+      World.setGate(tx, ty, { open: true, side: g.dir === 'h' ? (cy >= player.y ? 1 : -1) : (cx >= player.x ? 1 : -1) });
+    }
+    Sound.gate();
+    return null;
   }
 
   // Go to sleep. You will wake up here next time you faint.
@@ -1754,7 +2342,8 @@ const Mechanics = (() => {
     const now = performance.now();
     if (now - lastHurtMessage > 4000) {
       lastHurtMessage = now;
-      Hotbar.say(`A ${name.toLowerCase()} is attacking you! Fight back with F, or walk away.`);
+      Hotbar.say(name === 'Vampire' ? 'A vampire is attacking you! Use garlic, or walk away.'
+                                    : `A ${name.toLowerCase()} is attacking you! Fight back with F, or walk away.`);
       player.eatT = 0;
     }
     if (survival.health <= 0) Screens.faint(`You fainted. A ${name.toLowerCase()} hurt you. ${wakeText()}`);
@@ -1811,7 +2400,8 @@ const Mechanics = (() => {
 
     player.cooldown = Math.max(0, player.cooldown - dt);
     player.swing = Math.max(0, player.swing - dt);
-    if (down('action') && player.cooldown === 0) { holdingRifle() ? shoot() : useAxe(); tapped.delete('action'); }
+    if (down('action') && player.cooldown === 0) { holdingRifle() ? shoot() : holdingSling() ? fireSling() : useAxe(); tapped.delete('action'); }
+    updateSling(dt);
     if (shotLine) { shotLine.t -= dt; if (shotLine.t <= 0) shotLine = null; }
 
     // Space: a small, smooth jump (for fun; it does not go over trees).
@@ -1851,6 +2441,10 @@ const Mechanics = (() => {
     ctx.translate(0, -lift);
     ctx.scale(1 + lift / 60, 1 + lift / 60);
     ctx.rotate(st.angle);
+    if (Inventory.count('cape')) {                     // the vampire cape, on your back
+      ctx.fillStyle = C.vampCape;   ctx.fillRect(-6.5 * p, 0, 13 * p, 5 * p);
+      ctx.fillStyle = C.vampLining; ctx.fillRect(-6.5 * p, 4.2 * p, 13 * p, 0.8 * p);
+    }
     // shoulders (plaid shirt)
     ctx.fillStyle = C.shirt;      ctx.fillRect(-6 * p, -2.5 * p, 12 * p, 5 * p);
     ctx.fillStyle = C.shirtDark;
@@ -1863,7 +2457,12 @@ const Mechanics = (() => {
     // right hand with the axe (the axe swings gently when chopping)
     ctx.save();
     ctx.translate(6 * p, -1 * p - swing);
-    if (holdingRifle()) {
+    if (holdingSling()) {                                             // a Y-shaped slingshot
+      ctx.fillStyle = C.axeHandle;
+      ctx.fillRect(-0.5 * p, -3 * p, p, 3 * p); ctx.fillRect(-2 * p, -5 * p, p, 2.5 * p); ctx.fillRect(1 * p, -5 * p, p, 2.5 * p);
+      ctx.fillStyle = C.wolfLight; ctx.fillRect(-1.5 * p, -4.6 * p, 3 * p, 0.6 * p);
+      ctx.fillStyle = C.skin;      ctx.fillRect(-1 * p, -1 * p, 2 * p, 2 * p);
+    } else if (holdingRifle()) {
       ctx.fillStyle = C.rifleStock;  ctx.fillRect(-1 * p, -1 * p, 2 * p, 4 * p);   // stock
       ctx.fillStyle = C.rifleBarrel; ctx.fillRect(-0.5 * p, -9 * p, p, 8 * p);    // barrel
       ctx.fillStyle = C.skin;        ctx.fillRect(-1 * p, -1 * p, 2 * p, 2 * p);
@@ -1885,6 +2484,13 @@ const Mechanics = (() => {
 
   // The thin line of the last shot (fades out, no flash). Drawn in world position.
   function drawShot(ctx, camX, camY) {
+    garlicShots.forEach(g => {                         // flying garlic: a small white bulb with a shadow
+      const x = Math.round(g.x - camX), y = Math.round(g.y - camY);
+      ctx.fillStyle = C.shadow; ctx.fillRect(x - 2, y + 4, 7, 3);
+      ctx.fillStyle = C.garlicBulb; ctx.fillRect(x - 3, y - 3, 7, 7);
+      ctx.fillStyle = C.garlicStripe; ctx.fillRect(x, y - 3, 1, 7);
+      ctx.fillStyle = C.garlicLeaf; ctx.fillRect(x - 1, y - 5, 3, 2);
+    });
     if (!shotLine) return;
     ctx.save();
     ctx.globalAlpha = shotLine.t / RF.lineTime;
@@ -1909,7 +2515,7 @@ const Mechanics = (() => {
   }
 
   return { init, update, drawPlayer, player, survival, clearKeys, nearTable, nearCampfire, wakeUp,
-           save, load, count, hurt, cooked, drawShot, sleepHere, loaded: () => loaded, stats: () => stats };
+           save, load, count, hurt, cooked, drawShot, sleepHere, holding, loaded: () => loaded, stats: () => stats };
 })();
 </script>
 
@@ -1934,6 +2540,12 @@ const Icons = (() => {
     coal:         [['#2e2e2e', 3, 4, 10, 9], ['#4a4a4a', 5, 5, 3, 3], ['#1f1f1f', 9, 9, 3, 3]],
     iron:         [['#8a8a86', 3, 4, 10, 9], ['#d08a4a', 5, 6, 2, 2], ['#d08a4a', 9, 9, 2, 2], ['#e0a060', 8, 5, 2, 1]],
     furnace:      [['#8a8a86', 1, 2, 14, 12], ['#6f6f6b', 1, 6, 14, 1], ['#6f6f6b', 1, 10, 14, 1], ['#2b2b2b', 5, 8, 6, 5], ['#e8893a', 6, 10, 4, 3]],
+    garlic:       [['#5f9a3f', 7, 1, 2, 4], ['#efe9dc', 3, 5, 10, 9], ['#efe9dc', 5, 4, 6, 1], ['#b98fb0', 6, 6, 1, 7], ['#b98fb0', 9, 6, 1, 7], ['#d8d0c0', 4, 12, 8, 2]],
+    slingshot:    [[wood, 7, 8, 2, 7], [wood, 4, 3, 2, 6], [wood, 10, 3, 2, 6], [wood, 5, 7, 6, 2], ['#c9cbcc', 5, 3, 6, 1], ['#efe9dc', 7, 2, 2, 2]],
+    cape:         [['#1f1a24', 3, 3, 10, 11], ['#1f1a24', 2, 10, 12, 4], ['#8f2330', 3, 13, 10, 1], ['#8f2330', 4, 2, 2, 2], ['#8f2330', 10, 2, 2, 2]],
+    bone:         [['#e9e6dc', 4, 7, 8, 2], ['#e9e6dc', 2, 5, 3, 3], ['#e9e6dc', 2, 8, 3, 3], ['#e9e6dc', 11, 5, 3, 3], ['#e9e6dc', 11, 8, 3, 3], ['#b9b5a8', 4, 9, 8, 1]],
+    gate:         [['#6e4a2c', 1, 3, 2, 11], ['#6e4a2c', 13, 3, 2, 11], ['#b88b56', 3, 5, 10, 2], ['#b88b56', 3, 10, 10, 2], ['#8a6437', 7, 5, 2, 7], ['#8a6437', 4, 7, 2, 3], ['#8a6437', 10, 7, 2, 3]],
+    key:          [['#c9a24a', 2, 3, 6, 6], ['#2b2b2b', 4, 5, 2, 2], ['#c9a24a', 8, 5, 6, 2], ['#c9a24a', 11, 7, 2, 3], ['#c9a24a', 13, 7, 1, 2]],
     goldenAxe:    [...diag(wood, 3, 13, 9), ['#e8c547', 8, 2, 4, 3], ['#e8c547', 11, 3, 3, 4], ['#f2d870', 9, 5, 2, 2]],
     rifle:        [...diag('#4a4d50', 5, 10, 9), ['#6e4a2c', 1, 11, 5, 3], ['#6e4a2c', 1, 13, 2, 2], ['#7a5230', 6, 10, 2, 2]],
     ammo:         [['#c9a24a', 3, 5, 2, 8], ['#8a6a2a', 3, 4, 2, 1], ['#c9a24a', 7, 5, 2, 8], ['#8a6a2a', 7, 4, 2, 1],
@@ -1967,7 +2579,8 @@ const Icons = (() => {
   function get(id) { return urls[id] || (urls[id] = canvas(id).toDataURL()); }
   function img(id, n) {
     const name = CONFIG.items[id].name;
-    const label = CONFIG.items[id].gun ? `${Mechanics.loaded()}/${CONFIG.rifle.shots}` : n > 1 ? n : '';
+    const it = CONFIG.items[id];
+    const label = it.gun ? `${Mechanics.loaded()}/${CONFIG.rifle.shots}` : it.sling ? Inventory.count('garlic') : n > 1 ? n : '';
     return `<img src="${get(id)}" alt="${name}" title="${name}">` + (label !== '' ? `<span class="count">${label}</span>` : '');
   }
   return { get, canvas, img };
@@ -2032,8 +2645,10 @@ const Hud = (() => {
     ctx.fillRect(Math.cos(sunA) * r * 0.6 - 7, Math.sin(sunA) * r * 0.6 - 7, 14, 14);
     ctx.fillStyle = '#e8e4d0';                                     // moon
     ctx.fillRect(Math.cos(moonA) * r * 0.6 - 6, Math.sin(moonA) * r * 0.6 - 6, 12, 12);
-    ctx.fillStyle = '#1f2a4a';
-    ctx.fillRect(Math.cos(moonA) * r * 0.6 - 2, Math.sin(moonA) * r * 0.6 - 6, 8, 8);
+    if (!Animals.isFullMoon()) {                                   // a thin moon; on full-moon nights it is round
+      ctx.fillStyle = '#1f2a4a';
+      ctx.fillRect(Math.cos(moonA) * r * 0.6 - 2, Math.sin(moonA) * r * 0.6 - 6, 8, 8);
+    }
     ctx.restore();
     ctx.strokeStyle = '#c9b48a'; ctx.lineWidth = 4;               // frame
     ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
@@ -2043,7 +2658,8 @@ const Hud = (() => {
     ctx.font = '600 16px system-ui, sans-serif';
     ctx.fillText(`Day ${Time.day()}`, cx, y + 106);
     ctx.font = '14px system-ui, sans-serif';
-    ctx.fillText(Time.label(), cx, y + 124);
+    const lbl = Time.label();
+    ctx.fillText(lbl === 'Night' && Animals.isFullMoon() ? 'Full moon' : lbl, cx, y + 124);
     ctx.textAlign = 'left';
   }
 
@@ -2072,7 +2688,9 @@ const Goals = (() => {
     ['Make stone tools and build your base with walls.',               st => (got(st, 'crafted', 'stonePickaxe') || got(st, 'crafted', 'stoneAxe')) &&
                                                                               (got(st, 'placed', 'woodWall') || got(st, 'placed', 'stoneWall'))],
     ['Find iron (rocks with orange spots, needs a stone pickaxe). Make a hunting rifle and ammo.',
-                                                                       st => got(st, 'crafted', 'rifle') && got(st, 'crafted', 'ammo')]
+                                                                       st => got(st, 'crafted', 'rifle') && got(st, 'crafted', 'ammo')],
+    ['Find wild garlic (white flowers) and pick it with F. Plant some with Q.', st => got(st, 'placed', 'garlic0')],
+    ['Make a garlic slingshot (sticks and wool). Vampires come out some nights!', st => got(st, 'crafted', 'slingshot')]
   ];
   let last = '';
   function update() {
@@ -2115,7 +2733,12 @@ const Hotbar = (() => {
     const s = Inventory.selectedItem();
     const it = s && CONFIG.items[s.id];
     say(!s ? 'Empty slot' : it.food ? `${it.name} · hold R to eat`
-        : it.gun ? `${it.name} ${Mechanics.loaded()}/${CONFIG.rifle.shots} · F: shoot · R: reload` : it.name);
+        : it.gun ? `${it.name} ${Mechanics.loaded()}/${CONFIG.rifle.shots} · F: shoot · R: reload`
+        : it.sling ? `${it.name} · F: shoot garlic (${Inventory.count('garlic')} garlic)`
+        : s.id === 'garlic' ? 'Garlic · Q: plant it · keeps vampires away while you hold it'
+        : s.id === 'key' ? 'Gate key · R at a closed gate: lock or unlock it'
+        : s.id === 'bone' ? 'Bone · a treat for wolves: R facing a wolf to feed it'
+        : s.id === 'gate' ? 'Wooden gate (2 squares wide) · Q: place it across the way you are facing' : it.name);
   });
 
   Inventory.onChange(render);
@@ -2458,6 +3081,7 @@ const Screens = (() => {
     fade.classList.add('on');
     setTimeout(() => {
       Time.sleepToMorning();
+      World.growCrops(CONFIG.time.nightLength);   // your garlic grows while you sleep
       Save.write();
       fade.classList.remove('on');
       setTimeout(() => { sleeping = false; Hotbar.say(`Good morning! Day ${Time.day()}.`); }, 1200);
@@ -2498,7 +3122,7 @@ const Screens = (() => {
   try { peaceful = JSON.parse(localStorage.getItem(settingsKey) || '{}').peaceful === true; } catch (e) {}
   const peaceBtn = document.getElementById('peaceful');
   function showPeace() {
-    peaceBtn.textContent = peaceful ? 'Peaceful: ON (animals do not attack)' : 'Peaceful: OFF (wolves and bears attack)';
+    peaceBtn.textContent = peaceful ? 'Peaceful: ON (animals do not attack)' : 'Peaceful: OFF (wolves, bears and night creatures attack)';
   }
   peaceBtn.addEventListener('click', () => {
     peaceful = !peaceful;
@@ -2903,19 +3527,22 @@ const Easter = (() => {
 </script>
 
 <!-- ============================================================
-     SOUND — calm music and soft sounds, made inside the game
+     SOUND — music now and then, forest sounds and soft sounds, made inside the game
      (no sound files). Music starts OFF (press M). Nothing is loud.
      ============================================================ -->
 <script>
 const Sound = (() => {
   const S = CONFIG.sound;
   const key = CONFIG.save.key + '-audio';
-  const st = { music: S.musicOn, sounds: S.soundsOn, volume: S.volume };
+  const st = { music: S.musicOn, sounds: S.soundsOn, ambient: S.ambientOn, volume: S.volume };
   try { Object.assign(st, JSON.parse(localStorage.getItem(key) || '{}')); } catch (e) {}
   function store() { try { localStorage.setItem(key, JSON.stringify(st)); } catch (e) {} }
 
   let ac = null, master, musicGain, sfxGain, fireGain, lapGain, noiseBuf, musicTimer = null, nextNote = 0, beat = 0, note = 2;
   let lapPhase = 0;
+  let ambGain, windGain, leafGain, windPhase = 0;
+  const between = ([a, b]) => a + Math.random() * (b - a);
+  const timers = { bird: between(S.birdEvery) / 2, owl: between(S.owlEvery) / 2, wolf: between(S.wolfEvery), cricket: 0 };
 
   // Browsers only allow sound after a key press or a click, so we start here.
   function ensure() {
@@ -2940,6 +3567,17 @@ const Sound = (() => {
     const hp = ac.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 5000;
     const hissGain = ac.createGain(); hissGain.gain.value = 0.06;
     hiss.connect(hp).connect(hissGain).connect(fireGain); hiss.start(0, 0.7);
+    // Forest sounds: soft wind and leaves that slowly come and go. Birds, crickets,
+    // owls and far-away wolves are added in updateAmbient().
+    ambGain = ac.createGain(); ambGain.gain.value = 0; ambGain.connect(master);
+    const wind = ac.createBufferSource(); wind.buffer = noiseBuf; wind.loop = true;
+    const wl = ac.createBiquadFilter(); wl.type = 'lowpass'; wl.frequency.value = 420;
+    windGain = ac.createGain(); windGain.gain.value = 0.2;
+    wind.connect(wl).connect(windGain).connect(ambGain); wind.start(0, 1.3);
+    const leaves = ac.createBufferSource(); leaves.buffer = noiseBuf; leaves.loop = true;
+    const lb = ac.createBiquadFilter(); lb.type = 'bandpass'; lb.frequency.value = 2400; lb.Q.value = 0.6;
+    leafGain = ac.createGain(); leafGain.gain.value = 0.02;
+    leaves.connect(lb).connect(leafGain).connect(ambGain); leaves.start(0, 0.3);
     if (st.music) startMusic();
     return true;
   }
@@ -2959,13 +3597,13 @@ const Sound = (() => {
     o.start(t); o.stop(t + dur + 0.05);
   }
   // A short soft noise (for chops, the rifle, crackles).
-  function noise(dur, freq, vol, type, at) {
+  function noise(dur, freq, vol, type, at, dest) {
     const t = at || ac.currentTime;
     const src = ac.createBufferSource(); src.buffer = noiseBuf;
     const f = ac.createBiquadFilter(); f.type = type || 'lowpass'; f.frequency.value = freq;
     const g = ac.createGain();
     g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    src.connect(f).connect(g).connect(sfxGain);
+    src.connect(f).connect(g).connect(dest || sfxGain);
     src.start(t, Math.random()); src.stop(t + dur + 0.05);
   }
 
@@ -2977,6 +3615,8 @@ const Sound = (() => {
       noise(0.08, 900, 0.3); tone(150, 0.14, 'sine', 0.3, null, 0, 90);
     } else if (kind === 'stone') {                 // a gentle "tink"
       tone(880, 0.12, 'triangle', 0.1); tone(1320, 0.08, 'sine', 0.05); noise(0.05, 2500, 0.08, 'highpass');
+    } else if (kind === 'plant') {                 // a soft rustle of leaves
+      noise(0.12, 2600, 0.08, 'bandpass');
     } else {                                       // a soft thud
       tone(110, 0.12, 'sine', 0.28, null, 0, 70); noise(0.06, 500, 0.15);
     }
@@ -2998,6 +3638,7 @@ const Sound = (() => {
   function pop(level) { noise(0.03 + Math.random() * 0.03, 700 + Math.random() * 500, 0.14 * level, 'bandpass'); }
   function update(dt, fireLevel) {
     if (!ac) return;
+    updateAmbient(dt);
     fireGain.gain.setTargetAtTime(fireLevel * 0.12, ac.currentTime, 0.4);
     lapPhase += dt * (0.7 + Math.random() * 0.6);                 // the flames slowly "breathe"
     lapGain.gain.setTargetAtTime(0.35 + 0.25 * Math.sin(lapPhase) + Math.random() * 0.1, ac.currentTime, 0.25);
@@ -3017,21 +3658,127 @@ const Sound = (() => {
     [523.3, 659.3, 784.0, 1046.5, 1318.5].forEach((fr, i) => tone(fr, 1.6, 'sine', 0.06, null, ac.currentTime + i * 0.16));
   }
 
-  // ----- Music: slow, soft notes. A brighter tune by day, a calmer and lower one at night. -----
-  const DAY = [261.6, 293.7, 329.6, 392.0, 440.0, 523.3, 587.3];   // C major pentatonic
-  const NIGHT = [220.0, 261.6, 293.7, 329.6, 392.0, 440.0];         // A minor pentatonic
+  // The last hit on a tree: a slow wooden creak, then a soft "whump" as it falls into the leaves.
+  function timber() {
+    if (!ready()) return;
+    const t = ac.currentTime + 0.05;
+    const o = ac.createOscillator(), bp = ac.createBiquadFilter(), g = ac.createGain();
+    o.type = 'sawtooth'; o.frequency.setValueAtTime(95, t); o.frequency.linearRampToValueAtTime(60, t + 0.9);
+    bp.type = 'bandpass'; bp.frequency.value = 700; bp.Q.value = 5;
+    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.12, t + 0.25);
+    g.gain.linearRampToValueAtTime(0.08, t + 0.7); g.gain.exponentialRampToValueAtTime(0.0001, t + 1.0);
+    o.connect(bp).connect(g).connect(sfxGain); o.start(t); o.stop(t + 1.05);
+    const fall = t + 0.95;
+    noise(0.7, 450, 0.35, 'lowpass', fall);                       // soft crash
+    tone(70, 0.6, 'sine', 0.3, null, fall, 38);                   // low thump
+    noise(0.9, 3200, 0.05, 'highpass', fall + 0.05);              // leaves rustling
+  }
+
+  // Garlic slingshot: a soft "thwip"; a garlic hit: a soft "pof"; bats: a quiet flutter.
+  function sling() { if (!ready()) return; noise(0.07, 1800, 0.12, 'bandpass'); tone(500, 0.08, 'sine', 0.05, null, 0, 900); }
+  function splat() { if (!ready()) return; noise(0.09, 700, 0.2); tone(220, 0.1, 'sine', 0.1, null, 0, 150); }
+  function bats() {
+    if (!ready()) return;
+    for (let i = 0; i < 14; i++) noise(0.03, 1200 + Math.random() * 800, 0.05, 'bandpass', ac.currentTime + i * 0.07 + Math.random() * 0.03);
+  }
+
+  // A skeleton throws a bone: a soft "fwip". A werewolf: a far-away howl (the same soft howl as the forest wolves).
+  function toss() { if (!ready()) return; noise(0.12, 1400, 0.06, 'bandpass'); }
+  function howl() { if (ensure() && st.sounds) wolfHowl(); }
+
+  // A gate: a soft wooden creak. A lock: two small clicks.
+  function gate() {
+    if (!ready()) return;
+    const t = ac.currentTime, o = ac.createOscillator(), bp = ac.createBiquadFilter(), g = ac.createGain();
+    o.type = 'sawtooth'; o.frequency.setValueAtTime(140, t); o.frequency.linearRampToValueAtTime(110, t + 0.35);
+    bp.type = 'bandpass'; bp.frequency.value = 900; bp.Q.value = 6;
+    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.06, t + 0.1); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.4);
+    o.connect(bp).connect(g).connect(sfxGain); o.start(t); o.stop(t + 0.45);
+    noise(0.06, 600, 0.12, 'lowpass', t + 0.4);
+  }
+  function lock() { if (!ready()) return; tone(1600, 0.03, 'square', 0.025); tone(1200, 0.04, 'square', 0.025, null, ac.currentTime + 0.09); }
+
+  // ----- Forest sounds (background) -----
+  function chirp(at, base, vol) {                                 // one little bird note
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = 'sine'; o.frequency.setValueAtTime(base, at); o.frequency.exponentialRampToValueAtTime(base * 1.35, at + 0.08);
+    g.gain.setValueAtTime(0.0001, at); g.gain.linearRampToValueAtTime(vol, at + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, at + 0.12);
+    o.connect(g).connect(ambGain); o.start(at); o.stop(at + 0.15);
+  }
+  function bird() {
+    const t = ac.currentTime, base = 1800 + Math.random() * 1400, n = 2 + Math.floor(Math.random() * 4);
+    for (let i = 0; i < n; i++) chirp(t + i * (0.13 + Math.random() * 0.08), base * (0.9 + Math.random() * 0.25), 0.035);
+  }
+  function crickets(night) {                                      // a quick "tri-tri-tri"
+    const t = ac.currentTime, f = 4200 + Math.random() * 600;
+    for (let i = 0; i < 3; i++) tone(f, 0.03, 'sine', 0.012 * night, ambGain, t + i * 0.05);
+  }
+  function hoot(at, f, dur) {                                     // soft and round, slow start
+    const o = ac.createOscillator(), lp = ac.createBiquadFilter(), g = ac.createGain();
+    o.type = 'sine'; o.frequency.setValueAtTime(f, at); o.frequency.linearRampToValueAtTime(f * 0.9, at + dur);
+    lp.type = 'lowpass'; lp.frequency.value = 800;
+    g.gain.setValueAtTime(0.0001, at); g.gain.linearRampToValueAtTime(0.06, at + dur * 0.35);
+    g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+    o.connect(lp).connect(g).connect(ambGain); o.start(at); o.stop(at + dur + 0.05);
+  }
+  function owl() {                                                // "hoo ... hoo-hoo"
+    const t = ac.currentTime, f = 360 + Math.random() * 40;
+    hoot(t, f, 0.5); hoot(t + 0.9, f, 0.3); hoot(t + 1.25, f * 0.97, 0.55);
+  }
+  function wolfHowl() {                                           // far away: quiet, slow, never sudden
+    const t = ac.currentTime, dur = 3.2;
+    const o = ac.createOscillator(), lfo = ac.createOscillator(), lfoGain = ac.createGain();
+    const lp = ac.createBiquadFilter(), g = ac.createGain();
+    o.type = 'triangle';
+    o.frequency.setValueAtTime(300, t); o.frequency.linearRampToValueAtTime(540, t + 1.0);
+    o.frequency.linearRampToValueAtTime(560, t + 2.0); o.frequency.linearRampToValueAtTime(400, t + dur);
+    lfo.frequency.value = 5; lfoGain.gain.value = 7; lfo.connect(lfoGain).connect(o.frequency);
+    lp.type = 'lowpass'; lp.frequency.value = 900;
+    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.045, t + 0.9);
+    g.gain.linearRampToValueAtTime(0.04, t + 2.2); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(lp).connect(g).connect(ambGain);
+    o.start(t); lfo.start(t); o.stop(t + dur + 0.1); lfo.stop(t + dur + 0.1);
+  }
+  function updateAmbient(dt) {
+    const tent = typeof Tent !== 'undefined' && Tent.isOpen();
+    const want = st.ambient ? S.ambientVolume * (tent ? S.insideTent : 1) : 0;
+    ambGain.gain.setTargetAtTime(want, ac.currentTime, 0.8);       // fades in and out slowly
+    windPhase += dt * 0.15;                                        // the wind slowly rises and falls
+    windGain.gain.setTargetAtTime(0.14 + 0.08 * Math.sin(windPhase) + 0.04 * Math.sin(windPhase * 2.7), ac.currentTime, 1);
+    leafGain.gain.setTargetAtTime(0.012 + 0.012 * Math.max(0, Math.sin(windPhase * 1.3)), ac.currentTime, 1);
+    if (!st.ambient) return;
+    const night = Time.nightAmount();
+    timers.bird -= dt; timers.owl -= dt; timers.wolf -= dt; timers.cricket -= dt;
+    if (timers.bird <= 0) { timers.bird = between(S.birdEvery); if (night < 0.3) bird(); }
+    if (timers.cricket <= 0) { timers.cricket = 0.5 + Math.random() * 1.2; if (night > 0.3) crickets(night); }
+    if (timers.owl <= 0) { timers.owl = between(S.owlEvery); if (night > 0.7) owl(); }
+    if (timers.wolf <= 0) { timers.wolf = between(S.wolfEvery); if (night > 0.7) wolfHowl(); }
+  }
+
+  // ----- Music, now and then (like Minecraft): a piece plays for a while, then it is quiet. -----
+  // Daytime: a calm, bright tune. Night: a slow, low, mysterious tune (soft, never sudden).
+  const DAY = [261.6, 293.7, 329.6, 392.0, 440.0, 523.3, 587.3];          // C major pentatonic
+  const NIGHT = [110.0, 116.5, 130.8, 146.8, 155.6, 164.8, 196.0, 220.0]; // A with a dark, spooky colour
+  let phraseEnd = 0, restEnd = 0, phraseNight = false;
+  function startPhrase() {
+    phraseNight = Time.nightAmount() > 0.5;
+    phraseEnd = ac.currentTime + between(S.musicPlay);
+    restEnd = phraseEnd + between(S.musicRest);
+    nextNote = ac.currentTime + 0.3; beat = 0; note = phraseNight ? 3 : 2;
+  }
   function schedule() {
     if (!ac) return;
+    if (ac.currentTime >= restEnd) startPhrase();                  // quiet time is over: a new piece
     while (nextNote < ac.currentTime + 0.8) {
-      const night = Time.nightAmount() > 0.5;
-      const scale = night ? NIGHT : DAY, step = night ? 1.3 : 0.85;
-      if (beat % 8 === 0) {                        // a soft low chord every few notes
-        tone(scale[0] / 2, step * 7, 'sine', 0.07, musicGain, nextNote);
-        tone(scale[3] / 2, step * 7, 'sine', 0.05, musicGain, nextNote);
+      if (nextNote >= phraseEnd) { nextNote = restEnd; break; }   // quiet until the next piece
+      const night = phraseNight, scale = night ? NIGHT : DAY, step = night ? 1.7 : 0.85;
+      if (beat % 8 === 0) {                        // a soft low chord (at night: a deep, slow drone)
+        if (night) { tone(55, step * 8, 'sine', 0.08, musicGain, nextNote); tone(82.4, step * 8, 'sine', 0.04, musicGain, nextNote); }
+        else { tone(scale[0] / 2, step * 7, 'sine', 0.07, musicGain, nextNote); tone(scale[3] / 2, step * 7, 'sine', 0.05, musicGain, nextNote); }
       }
-      if (Math.random() > 0.25) {                  // the tune walks gently up and down
+      if (Math.random() > (night ? 0.4 : 0.25)) {  // the tune walks gently up and down
         note = Math.max(0, Math.min(scale.length - 1, note + [-2, -1, -1, 0, 1, 1, 2][Math.floor(Math.random() * 7)]));
-        tone(scale[note], night ? 2.4 : 1.7, 'triangle', 0.09, musicGain, nextNote);
+        tone(scale[note], night ? 3.2 : 1.7, night ? 'sine' : 'triangle', night ? 0.1 : 0.09, musicGain, nextNote);
       }
       nextNote += step; beat++;
     }
@@ -3040,7 +3787,7 @@ const Sound = (() => {
     if (!ac) return;
     musicGain.gain.cancelScheduledValues(ac.currentTime);
     musicGain.gain.setTargetAtTime(0.8, ac.currentTime, 1.5);           // fades in slowly
-    if (!musicTimer) { nextNote = ac.currentTime + 0.3; musicTimer = setInterval(schedule, 200); }
+    if (!musicTimer) { startPhrase(); musicTimer = setInterval(schedule, 200); }   // the first piece starts now
   }
   function stopMusic() {
     if (!ac) return;
@@ -3051,10 +3798,12 @@ const Sound = (() => {
   // ----- Buttons and keys -----
   const musicBtn = document.getElementById('musicBtn');
   const soundBtn = document.getElementById('soundBtn');
+  const ambientBtn = document.getElementById('ambientBtn');
   const volumeEl = document.getElementById('volume');
   function showButtons() {
     musicBtn.textContent = st.music ? 'Music: ON' : 'Music: OFF';
     soundBtn.textContent = st.sounds ? 'Sounds: ON' : 'Sounds: OFF';
+    ambientBtn.textContent = st.ambient ? 'Forest sounds: ON' : 'Forest sounds: OFF';
     volumeEl.value = Math.round(st.volume * 100);
   }
   function toggleMusic() {
@@ -3068,6 +3817,9 @@ const Sound = (() => {
     st.sounds = !st.sounds; store(); showButtons();
     if (ensure()) sfxGain.gain.setTargetAtTime(st.sounds ? 1 : 0, ac.currentTime, 0.1);
   });
+  ambientBtn.addEventListener('click', () => {
+    st.ambient = !st.ambient; store(); showButtons(); ensure();       // fades in or out in updateAmbient()
+  });
   volumeEl.addEventListener('input', () => {
     st.volume = volumeEl.value / 100; store();
     if (ensure()) master.gain.setTargetAtTime(st.volume, ac.currentTime, 0.05);
@@ -3075,7 +3827,7 @@ const Sound = (() => {
   window.addEventListener('keydown', e => { if (e.code === 'KeyM' && !e.repeat) toggleMusic(); });
   showButtons();
 
-  return { hit, rifle, click, reload, update, chime, settings: () => ({ ...st }) };
+  return { hit, rifle, click, reload, update, chime, timber, sling, splat, bats, gate, lock, toss, howl, settings: () => ({ ...st }) };
 })();
 </script>
 
@@ -3152,8 +3904,8 @@ const Game = (() => {
     dctx.fillRect(0, 0, viewW, viewH);
     dctx.globalCompositeOperation = 'destination-out';
     const pl = Mechanics.player;
-    const lights = World.lights(camX, camY, viewW, viewH);
-    lights.push({ x: pl.x - camX, y: pl.y - camY, r: CONFIG.player.light });
+    const lights = World.lights(camX, camY, viewW, viewH).concat(Animals.lights(camX, camY));
+    lights.push({ x: pl.x - camX, y: pl.y - camY, r: Math.max(CONFIG.player.light, Inventory.best(it => it.light, it => it.light)) });
     lights.forEach(l => {
       const g = dctx.createRadialGradient(l.x, l.y, 0, l.x, l.y, l.r);
       g.addColorStop(0, 'rgba(0,0,0,1)');
