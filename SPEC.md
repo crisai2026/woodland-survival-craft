@@ -12,7 +12,7 @@ then a bed, walls and stone tools.
 
 ## Design rules (for a neurodivergent young player)
 - Clean screens, few elements.
-- No flashing, no sounds, no sudden movements. Day and night change slowly.
+- No flashing, no loud or sudden sounds, no sudden movements. Day and night change slowly.
 - Messages are short, simple and literal. They fade out slowly.
 - A "Goal" box always says what to try next.
 
@@ -45,6 +45,9 @@ No story for now.
 | R facing your tent | Go inside the tent (place your bed, sleep) |
 | F with the rifle in your hand | Shoot |
 | R with the rifle in your hand | Reload (takes ammo from your inventory) |
+| F with the slingshot in your hand | Shoot garlic |
+| Q with garlic | Plant it |
+| R facing a gate | Open or close it (with the gate key: lock or unlock) |
 | E | Inventory and crafting (the game pauses) |
 | H | Show or hide the controls |
 
@@ -65,7 +68,7 @@ No story for now.
 - **Cooking (like Minecraft):** hold raw meat, face a campfire and press R. The meat goes on the fire
   (up to 4 pieces). It slowly changes from red to brown over 10 seconds (no flicker), then drops
   next to the fire as cooked meat. Breaking a campfire gives back the raw meat on it.
-- Wolves, bears and angry moose also take hearts (see Animals).
+- Wolves, bears, angry moose and night creatures also take hearts (see Animals and Night creatures).
 - With 0 hearts you faint. You wake up at your bed (or the start) with all your items.
 
 **Inventory (E) — like Minecraft**
@@ -103,6 +106,9 @@ No story for now.
 | Campfire | sticks, 1 coal, 3 wood | table |
 | Hunting rifle | 3 iron on top, 2 planks + 1 stick below | table |
 | 8 ammo | 1 iron above 1 coal | anywhere |
+| Garlic slingshot | sticks in a Y shape, 1 wool between the top sticks | table |
+| Wooden gate | 2 rows of: stick, plank, stick | table |
+| Gate key | 1 iron above 1 stick | anywhere |
 
 **Breaking things (F)**
 
@@ -112,6 +118,8 @@ No story for now.
 | Stone rock | 4 | pickaxe | 1 stone |
 | Coal rock | 5 | pickaxe | 1 coal |
 | Iron rock (orange spots) | 6 | **stone** pickaxe or better | 1 iron |
+| Wild garlic (white flowers) | 1 | nothing | 2 garlic |
+| Planted garlic | 1 | nothing | 1 garlic (ripe: 3 garlic) |
 | Things you placed | 1 – 4 | axe (stone wall: pickaxe) | the item back |
 
 - Stone tools are twice as strong: fewer hits.
@@ -150,7 +158,7 @@ A stone sword (or stone axe) hunts with power 2, so big animals need fewer hits.
 - R reloads: a small bar fills for 1.5 seconds, then ammo from your inventory goes into the rifle.
   Changing to another item stops the reload.
 - Out of shots: "Out of ammo. Press R to reload." No ammo left: "No ammo. Make some at the crafting table."
-- No new enemies: the rifle is for hunting and for wolves, bears and angry moose.
+- The rifle works on animals and night creatures, but not on the vampire (only garlic hurts it).
 
 **Tent**
 - Face your tent and press R: a calm pop-up shows the inside of the tent, seen from above.
@@ -191,7 +199,60 @@ It glows softly at night. Stand in the middle at night and press R: fireflies da
 and out softly, no blinking), a soft magic chime plays, and you get a **Golden axe** that chops a tree in one hit.
 In the daytime: "The mushrooms seem to be waiting for the night..."
 
-**Placing (Q)**: crafting table, tent, campfire, torch, wooden wall, stone wall.
+**Garlic**
+- Wild garlic grows in small patches with white flowers (at least 20 in the forest, a few 5–10 squares
+  from the start). F picks it: 2 garlic. New wild garlic grows back slowly far away.
+- Planting: choose garlic and press Q on grass. It grows in 3 stages you can see: sprout → green leaves → ripe
+  (a white bulb shows). Each stage takes 3 minutes, so about one game day. It also grows while you sleep.
+- F on ripe garlic: 3 garlic. (F on unripe garlic gives the clove back.)
+
+**Garlic slingshot**
+- Choose the slingshot and press F: a garlic flies slowly in the direction you face (you can see it).
+  Each shot uses 1 garlic. The hotbar shows how much garlic you have.
+- A garlic that misses lands on the ground, so you can pick it up again.
+- It also hits animals softly (like 1 axe hit).
+
+**Night creatures** (calm and fair, like the wolves: a steady "!" first, you are always faster, they give up)
+| Creature | Hits (basic axe) | Rifle shots | Behaviour | Drops |
+|---|---|---|---|---|
+| Zombie | 6 | 2 | Slow, walks toward you, arms forward (1 heart per bite) | 1 wool |
+| Skeleton | 6 | 2 | Stays 4–5 squares away and throws a slow, spinning bone every 2.5 s (1 heart). Walk out of the way! | 2 bones |
+| Werewolf | 16 | 4 | Only on full-moon nights. Big and strong (2 hearts per bite), but still slower than you | 3 bones, 4 meat |
+- Zombies and skeletons come out every night, from Day 1, as soon as the evening gets dark: 2 at a time,
+  every 7 seconds, just outside the screen, up to 6 zombies and 4 skeletons. They look for you from about 10 squares away.
+- Night creatures and the vampire have a small soft light around them, so you can see them coming in the dark.
+- **Full moon:** Day 4, then every 4th night (Day 8, 12 ...). The clock shows a round moon and "Full moon".
+  In the evening a calm message warns you. One werewolf comes out, with a soft far-away howl.
+- They never come into the light of campfires and torches, can't pass closed gates or walls, and
+  trees and walls stop bones. Your tent is safe.
+- At sunrise they all fade away slowly. They are not saved (a new night brings new ones).
+- Peaceful mode: none of them come out.
+- **Bones** are dog treats: hold a bone and press R facing a wolf (like meat) to tame it.
+
+**The vampire**
+- Comes out every 2nd night: Day 2, 4, 6 ... (once the evening is dark). Never in Peaceful mode.
+- In the evening a calm message warns you: "Tonight a vampire may come out... Get your garlic ready!"
+- It appears far from you, never in the light, and walks toward you with a steady "!" first. You are faster.
+- **Only garlic hurts it.** The axe and the rifle do nothing ("The vampire doesn't feel it. Try garlic!").
+  5 garlic hits from the slingshot beat it; each hit makes it flinch and step back.
+- **Holding garlic** keeps it away: it will not come closer than about 3 squares.
+- It stays out of the light of campfires and torches, so a lit base is safe. Your tent is safe too.
+- Beaten: it turns into a little cloud of bats that flies away (no blood), and leaves a **Vampire cape**
+  next to you (later vampires leave 3 garlic). The cape gives you a bigger light at night and shows on your back.
+- At sunrise, a vampire that is still around turns into bats and flies away.
+
+**Wooden gate** (a farm gate with two doors, **2 squares wide**: one door on each square)
+- Q places it across the way you are facing, on the square in front of you and the one next to it,
+  so it fits in a 2-square gap in a line of walls. If there is no room: "A gate needs 2 free squares side by side."
+- Both doors always move together: opening, closing, locking.
+- R facing the gate opens it: the two doors swing slowly open, away from you (like pushing a farm gate).
+  R again closes it. You can't close it while you, or an animal, stand in it.
+- Open: you can walk through (animals too). Closed: nothing can pass — not wolves, bears or the vampire.
+- **Locking:** hold the gate key and press R at a closed gate: a small padlock shows. A locked gate can't be
+  opened or broken ("The gate is locked..."). Hold the key and press R again to unlock it.
+- F breaks an unlocked gate (both squares) and gives back 1 gate.
+
+**Placing (Q)**: crafting table, tent, campfire, torch, wooden wall, stone wall, gate, garlic (planting).
 **Sleeping**: inside your tent, in your bed, in the evening or at night. The screen fades slowly,
 the night passes, and you wake up in the morning. That bed or tent becomes your home.
 
@@ -201,13 +262,21 @@ they stay on the ground.
 **Saving**: the game saves itself in this browser every 15 seconds and when you close it.
 "Start a new world" (in the H controls box) asks once more, then starts a fresh forest.
 
-**Music and sounds** (made inside the game, no sound files, nothing loud)
-- Music starts OFF. Press **M** (or the button in the H box) to turn it on. It fades in slowly.
-  Slow, soft notes: a brighter tune by day, a calmer and lower one at night.
+**Music and sounds** (made inside the game, no sound files, nothing loud, nothing sudden)
+- **Forest sounds** in the background: soft wind and leaves that slowly come and go.
+  - Daytime: little birds sing now and then.
+  - Night: quiet crickets, an owl now and then ("hoo ... hoo-hoo"), and sometimes a wolf howling far away.
+    All of them start softly and are quieter than the other sounds.
+  - Inside the tent the forest sounds are quieter. "Forest sounds: ON/OFF" in the H box turns them off.
+- **Music** starts OFF. Press **M** (or the button in the H box) to turn it on. It fades in slowly.
+  Like Minecraft, it plays **now and then**: a piece of about 35–55 seconds, then 45–90 seconds of quiet.
+  - Daytime: a calm, bright tune.
+  - Night: a slow, low, mysterious (a little spooky) tune with a deep soft hum. Never sudden or loud.
 - Soft sounds: a wooden "thock" when the axe hits wood, a gentle "tink" on rocks, a soft thud on animals,
   a muffled "pof" for the rifle (not a loud bang), small clicks for reloading and an empty rifle,
-  and a quiet crackle near a campfire that gets louder as you come closer.
-- In the H box: Music ON/OFF, Sounds ON/OFF, and a volume slider. The choices are remembered.
+  and a cozy crackle near a campfire that gets louder as you come closer.
+- **Timber!** On the last hit, a tree creaks slowly and then falls with a soft crash and rustling leaves.
+- In the H box: Music ON/OFF, Sounds ON/OFF, Forest sounds ON/OFF, and a volume slider. The choices are remembered.
 
 ## How we work
 1. These specs live in this file (SPEC.md).
@@ -220,7 +289,8 @@ they stay on the ground.
 ## Technical
 - One HTML file (`index.html`) with JavaScript. No external dependencies.
 - Modules: `CONFIG`, `Story`, `World`, `Animals`, `Drops`, `Time`, `Inventory`, `Crafting`,
-  `Mechanics`, `Icons`, `Hud` + `Goals` + `Hotbar`, `InventoryScreen`, `Screens`, `Save`, `Game`.
+  `Mechanics`, `Icons`, `Hud` + `Goals` + `Hotbar`, `InventoryScreen`, `Screens`, `Tent`, `Easter`, `Sound`,
+  `Save`, `Game`.
 
 ## Progress log
 - Step 1 — The lumberjack walks around a forest. The camera follows him.
@@ -259,3 +329,17 @@ they stay on the ground.
   the rifle and the campfire, with on/off buttons and a volume slider.
 - Step 14 — Stone furnace inside the tent (cooks with coal), taming a wolf into a dog, a cozier campfire sound,
   and a secret fairy ring with fireflies and a Golden axe.
+- Step 15 — Forest sounds (wind, leaves, birds by day; crickets, owls and far-away wolves at night),
+  a "timber" creak and crash when a tree falls, and music that plays now and then: calm by day,
+  mysterious at night. New "Forest sounds" button in the H box.
+- Step 16 — Garlic (wild patches, planting, 3 growing stages, harvest), the garlic slingshot, and the vampire:
+  comes out every 3rd night from Day 3, only garlic hurts it, holding garlic keeps it away, it avoids light,
+  turns into bats when beaten or at sunrise, and leaves a Vampire cape. Other enemies are on hold.
+- Step 17 — Wooden farm gate with two doors that swing open away from you (R), and a gate key (iron + stick)
+  to lock and unlock it. A locked gate can't be opened or broken.
+- Fix — The gate is now 2 squares wide, with one long door on each square.
+- Step 18 — Night creatures: zombies and skeletons (from Day 2; skeletons throw slow bones) and a werewolf on
+  full-moon nights (every 4th night, round moon and "Full moon" on the clock). They avoid light, fade at sunrise,
+  and bones can tame wolves.
+- Fix — Night creatures and the vampire were too rare and hard to see. Now more come out, closer, from Day 1
+  (vampire every 2nd night), with a soft light around them.
