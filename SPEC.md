@@ -26,6 +26,11 @@ No story for now.
 - Trees grow back slowly, far away from you. New animals appear far away.
 - There is always enough iron: at least 30 iron rocks, with at least 3 within 6–12 squares of the start.
   Mined iron comes back slowly somewhere far away. Iron rocks have big bright orange spots.
+- **Water:** one river runs across the whole forest (top to bottom, away from the start), with a dry ford
+  (3 squares of ground) every 14 squares so you can always get across. 6 ponds, and one pond a short walk
+  (8–10 squares) from the start. You can't walk on water. Water is calm: still ripples, some lily pads.
+  Older worlds get the same river and ponds once, safely: only on grass, trees and rocks, never on or next to
+  anything you built, never where you stand, never on the secret ring (those spots simply stay dry).
 - Day and night: 4 minutes of day, 2 minutes of night. Evening and morning change slowly.
   At night the forest gets darker. Campfires and torches glow. There is a small light around you.
 
@@ -48,6 +53,7 @@ No story for now.
 | F with the slingshot in your hand | Shoot garlic |
 | Q with garlic | Plant it |
 | R facing a gate | Open or close it (with the gate key: lock or unlock) |
+| F with the fishing rod, facing water | Cast the line. When a fish bites, F again to catch it |
 | E | Inventory and crafting (the game pauses) |
 | H | Show or hide the controls |
 
@@ -64,8 +70,8 @@ No story for now.
 - **Eating (like Minecraft):** choose food in the hotbar and **hold R** (or the right mouse button)
   for 1.5 seconds. A small bar above you fills, then the food is eaten and the chickens fill up.
   Letting go early cancels it. You can't eat when you are full. Choosing food shows "hold R to eat".
-- Raw meat gives 2 chickens. Cooked meat gives 5, so cooking is worth it.
-- **Cooking (like Minecraft):** hold raw meat, face a campfire and press R. The meat goes on the fire
+- Raw meat gives 2 chickens, cooked meat 5. Raw fish 1, cooked fish 4. Raw salmon 2, cooked salmon 6. Cooking is worth it.
+- **Cooking (like Minecraft):** hold raw meat or fish, face a campfire and press R. The meat goes on the fire
   (up to 4 pieces). It slowly changes from red to brown over 10 seconds (no flicker), then drops
   next to the fire as cooked meat. Breaking a campfire gives back the raw meat on it.
 - Wolves, bears, angry moose and night creatures also take hearts (see Animals and Night creatures).
@@ -97,7 +103,10 @@ No story for now.
 | 4 torches | coal above a stick | anywhere |
 | Wooden pickaxe | 3 planks on top, 2 sticks down the middle | table |
 | Stone pickaxe | 3 stone on top, 2 sticks down the middle | table |
+| Wooden axe | planks + sticks in an axe shape | table |
 | Stone axe | stone + sticks in an axe shape | table |
+| Iron axe | iron + sticks in an axe shape | table |
+| Chainsaw | the iron axe in the middle, 8 iron all around it | table |
 | Stone sword | 2 stone above a stick | table |
 | 6 wooden walls | 6 planks (2 rows of 3) | table |
 | 6 stone walls | 6 stone (2 rows of 3) | table |
@@ -109,6 +118,7 @@ No story for now.
 | Garlic slingshot | sticks in a Y shape, 1 wool between the top sticks | table |
 | Wooden gate | 2 rows of: stick, plank, stick | table |
 | Gate key | 1 iron above 1 stick | anywhere |
+| Fishing rod | 3 sticks in a diagonal, 2 wool hanging down as the line | table |
 
 **Breaking things (F)**
 
@@ -123,6 +133,11 @@ No story for now.
 | Things you placed | 1 – 4 | axe (stone wall: pickaxe) | the item back |
 
 - Stone tools are twice as strong: fewer hits.
+- **Axes, step by step:** wooden axe (3 hits for a tree, like the axe you start with) → stone axe (2 hits)
+  → iron axe (1 hit) → **chainsaw**. You always use the best axe you carry.
+- **Chainsaw:** hold it and press F: a tree is cut in one go, and it cuts again very quickly (every 0.15 s),
+  with a soft, low "brrr" (never loud). It is only for trees and wooden things: it never hits animals
+  ("The chainsaw is only for trees and wood"), and it doesn't count for hunting.
 - Edge-of-world trees cannot be chopped.
 
 **Animals** — food chain: rabbit, fox, wolf, deer, moose, bear.
@@ -180,7 +195,7 @@ A stone sword (or stone axe) hunts with power 2, so big animals need fewer hits.
 - Recipe: 8 stone in a ring (crafting table). Like the bed, it only goes inside your tent
   (pressing Q outside shows the same kind of pop-up).
 - Inside the tent it has its own place by the firewood. Q places it, F takes it back (with the meat inside).
-- Hold raw meat and press R next to it: the meat goes in (up to 8). One coal cooks 4 pieces.
+- Hold raw meat or fish and press R next to it: it goes in (up to 8). One coal cooks 4 pieces.
   It cooks one piece at a time (6 seconds each), with a steady warm glow and a small progress bar,
   also while you are away. R with anything else takes the cooked meat out.
 - While it cooks, you hear a soft fire crackle inside the tent.
@@ -252,6 +267,15 @@ In the daytime: "The mushrooms seem to be waiting for the night..."
   opened or broken ("The gate is locked..."). Hold the key and press R again to unlock it.
 - F breaks an unlocked gate (both squares) and gives back 1 gate.
 
+**Fishing**
+- Make a fishing rod at the crafting table. Choose it and face a pond or the river (up to 3 squares away),
+  then press F: the line goes in and a red-and-white bobber floats on the water.
+- Wait calmly (3–8 seconds). When a fish bites, a soft "blip-blip" plays, the bobber dips a little and a
+  steady "!" shows above it, with the message "A fish is biting! Press F now." You have 2.5 seconds.
+- Catch: a small fish (raw fish), or sometimes (3 in 10) a salmon. Too late: "The fish swam away" and another
+  one comes; nothing is lost. F before a bite pulls the line in. Walking away or changing item pulls it in too.
+- Fish are food: eat them raw (hold R) or cook them on a campfire or in the stone furnace, like meat.
+
 **Placing (Q)**: crafting table, tent, campfire, torch, wooden wall, stone wall, gate, garlic (planting).
 **Sleeping**: inside your tent, in your bed, in the evening or at night. The screen fades slowly,
 the night passes, and you wake up in the morning. That bed or tent becomes your home.
@@ -277,6 +301,46 @@ they stay on the ground.
   and a cozy crackle near a campfire that gets louder as you come closer.
 - **Timber!** On the last hit, a tree creaks slowly and then falls with a soft crash and rustling leaves.
 - In the H box: Music ON/OFF, Sounds ON/OFF, Forest sounds ON/OFF, and a volume slider. The choices are remembered.
+
+### Caves and ore
+- **4 caves** on the map, far from the start: a dark opening in a small stone hill. One is **the haunted mine** (wooden frame and a sign).
+- Face an opening and press **R** to go in. Each cave is its **own big map** that scrolls like the forest
+  (tunnels and rooms). It is always dark underground: your light is bigger there, torches work as outside.
+  The bright square of daylight behind you is the way out: face it and press **R**.
+- Everything works like outside: mining, placing torches and campfires, fighting, fishing in cave pools,
+  your dog comes with you. You can't put a tent or plant garlic underground.
+- **Lots of ore**: every tunnel and room has 2 rows of stone around it, full of coal and iron. Deep rock behind it can't be broken.
+- **Dripping water**: in every cave, realistic drops into puddles (a tiny tap and a rising "bloop"), near or far,
+  left or right, sometimes two in a row, with the cave's echo.
+- **Bats** in every cave (14 each): they hang still and flutter away when you come close. Now and then a little group
+  flies past you. They never hurt you.
+- **More cave sounds** (soft, with echo): a low hum of air in the rock, small pebbles falling, water trickling far away,
+  bats squeaking, and the rock settling deep and far away.
+- **Glow mushrooms** (a little light, and a snack), **harmless bats** that flutter away when you come close.
+- **Creatures** live in the caves (day and night): zombies, skeletons and, in 3 caves, a vampire.
+  Same calm rules as outside (a steady "!", you are faster, they give up, they stay out of the light).
+  Never near the way out, never in secret rooms. New ones come each day. Peaceful mode: none.
+- The 4 caves: **The haunted mine** (straight tunnels with rails, wooden beams, old carts, lanterns, slow ghost lights),
+  **A quiet cave** (small, a pool), **A deep cave** (big), **A crystal cave** (biggest, glowing crystals, a pool).
+- **The secret treasure chest** (like in Knight's Quest): there is only **one**, in the minions' secret room in the deep cave.
+  Press **E** (or R) next to it: the Knight's Quest chest sound, and a **Knight's Quest trophy coin** pops out.
+  Pick it up (the Knight's Quest coin sound): a secret prize, not money. Later it will go in your tent (still to plan).
+  The chest stays empty after.
+- The trophy shelf is out of the game for now (no recipe), until we plan the trophy in the tent.
+- **Knight's Quest secrets** (Easter eggs), one in the haunted mine, the deep cave and the crystal cave:
+  - The clue: a short tunnel that stops for no reason, with a tiny Knight's Quest sword faintly scratched in the floor.
+  - At its end, a **hidden rock** that looks exactly like normal stone. Mining it sounds hollow ("This rock sounds hollow...").
+  - Before you break in, the room is completely hidden: it looks like solid stone, nothing inside shows.
+  - Breaking the rock (or any wall next to the room) **turns the lights on**: wall torches light one after another
+    (a soft fade, no flash), a chime, "You broke through! A secret! ... (n of 3 secrets)". The room stays lit (also after saving).
+  - Inside a found room, **quiet, echoing ambient music from Knight's Quest** plays: the game's tunes, slower, with soft
+    round waves, a little muffled and with a cave echo (fades in and out; our own music waits).
+  1. Haunted mine: the Knight and the Princess resting together in two coffins (Knight's Quest "princess is free" tune).
+  2. Deep cave: one room with the bones of all the Dragon's minions (furry, insect, tentacle and winged),
+     scattered where they fell (different places and angles, loose bones), not in a row; one lies right next to the chest,
+     and one treasure chest (the Knight's Quest forest-level tune).
+  3. Crystal cave: the bones of the Dragon boss (the dark-level tune).
+- Saving inside a cave: next time you start outside its opening. Fainting in a cave: you wake up outside.
 
 ## How we work
 1. These specs live in this file (SPEC.md).
@@ -343,3 +407,27 @@ they stay on the ground.
   and bones can tame wolves.
 - Fix — Night creatures and the vampire were too rare and hard to see. Now more come out, closer, from Day 1
   (vampire every 2nd night), with a soft light around them.
+- Step 19 — Fishing: one river (with dry fords) and ponds on the map, a fishing rod to craft, calm fishing
+  (cast with F, wait, press F when the fish bites), raw fish and salmon to eat or cook on the campfire or furnace.
+- Fix — Older worlds only got one small pond. Now they get the whole river and all the ponds too (safely, around your things).
+- Step 20 — Axe steps: wooden axe, stone axe, iron axe, and the chainsaw (iron axe surrounded by 8 iron):
+  fast, one cut per tree, only for trees and wood.
+- Step 21 — Caves and ore: 4 caves (one haunted old mine) with extra ore that grows back, top-down insides like the tent,
+  and 4 Knight's Quest secrets (coffins, minion skeletons including the insect and winged ones, the chest with one coin,
+  the Dragon skeleton). Older worlds get the caves once, safely, around your things.
+- Step 22 — Caves rebuilt (after playing): each cave is now a big scrolling map with lots of ore, creatures, bats,
+  glow mushrooms, hidden Knight's Quest treasure chests (E: coins pop out, same sounds as Knight's Quest),
+  a trophy shelf for the coins, and hidden secrets behind cracked rocks.
+- Fix — The minion skeletons are now together in one secret room with one chest (deep cave), 3 secrets in all.
+  Knight's Quest music plays inside the secret rooms. Caves saved before this change are made fresh.
+- Fix — Only the minions' secret room has a treasure chest (the coffins and the Dragon rooms don't).
+  The Knight's Quest music in the secret rooms is louder (CONFIG.sound.kqMusic).
+- Fix — Only one treasure chest in the game (minions' room) with one Knight's Quest trophy coin, a secret prize.
+  The trophy shelf is out for now. The old mine is a haunted gold mine (gold ore, later removed). Water drips in every cave.
+- Step 23 — Secret room entry: a dead-end tunnel with a faint sword mark, a hidden rock that looks like stone
+  (hollow sound), the room stays dark and hidden until you break in, then its torches light up one by one.
+  Minion skeletons lie scattered, not in a row.
+- Fix — One minion skeleton lies next to the chest. 8 bats in every cave. Realistic water drops with a cave echo.
+  The Knight's Quest music in the secret rooms is quiet, slower and echoing (ambient).
+- Fix — No gold in the mine any more ("The haunted mine"). More cave sounds (air hum, pebbles, trickling water,
+  bat squeaks, the rock settling). 14 bats in each cave, and little groups of bats fly past now and then.
