@@ -247,10 +247,17 @@ const Under = (() => {
       rect(C.boneWhite, -9, -1, 18, 3); rect(C.boneWhite, -11, -3, 3, 3); rect(C.boneWhite, -11, 1, 3, 3); rect(C.boneWhite, 8, -3, 3, 3); rect(C.boneWhite, 8, 1, 3, 3);
       g.rotate(1.3); rect(C.boneShade, -6, 6, 12, 2);
       g.restore();
-    } else if (d.type === 'sword') {                    // a tiny Knight's Quest sword, faintly scratched into the floor
-      g.save(); g.translate(sx + 20, sy + 20); if (d.dir === 'h') g.rotate(Math.PI / 2);
-      g.globalAlpha = 0.3;
-      rect('#e5e7eb', -1, -11, 2, 15); rect('#e5e7eb', -5, 3, 10, 2); rect('#e5e7eb', -1, 5, 2, 5);
+    } else if (d.type === 'sword') {                    // a Knight's Quest sword scratched into the floor (the clue to a secret)
+      g.save(); g.translate(sx + 20, sy + 20);
+      const r = World.caveInfo().secrets.find(r => Math.abs(r.rock[0] - d.x) + Math.abs(r.rock[1] - d.y) === 1);   // the hidden rock next to it
+      if (r) g.rotate(Math.atan2(r.rock[1] - d.y, r.rock[0] - d.x) + Math.PI / 2); else if (d.dir === 'h') g.rotate(Math.PI / 2);   // the tip points to it
+      g.globalAlpha = CV.swordMark;
+      rect('#2a2622', -2, -16, 6, 24); rect('#2a2622', -8, 6, 18, 5);    // dark scratch shadow
+      rect('#d9dde3', -3, -17, 6, 23);                                    // blade
+      rect('#f4f6f8', -1, -19, 2, 3);                                     // tip
+      rect('#c9a24a', -9, 5, 18, 4);                                      // cross-guard
+      rect('#8a5a2b', -2, 9, 4, 7);                                       // handle
+      rect('#c9a24a', -3, 16, 6, 3);                                      // pommel
       g.globalAlpha = 1; g.restore();
     } else if (d.type === 'wisp') {
       const p = wisp(d), x = p.x - d.x * ts + sx, y = p.y - d.y * ts + sy;
