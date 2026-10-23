@@ -1,0 +1,3 @@
+const Story = {
+  enabled: false
+};
