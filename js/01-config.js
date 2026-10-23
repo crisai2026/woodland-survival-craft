@@ -183,6 +183,7 @@ const CONFIG = {
     chests: 0,             // treasure chests in corners and dead ends (none: there is only the one secret chest)
     coins: [1, 1],
     secretCoins: 1,        // the secret chest in the minions' room holds one Knight's Quest trophy coin
+    swordMark: 0.6,        // 0 to 1: how clearly the Knight's Quest sword mark shows on the floor (the clue to a secret)
     goldChance: 0,         // no gold in the caves (the gold block stays only so older saves still work)
     glowShrooms: 14,       // glowing mushrooms (a little light, and a snack)
     bats: 14,              // harmless bats hanging from the ceiling
