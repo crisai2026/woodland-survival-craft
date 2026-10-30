@@ -6,6 +6,10 @@ const Tent = (() => {
   const SPEED = 130, R0 = 11;                         // walking speed inside, your size
   const BED = { x: 80, y: 80, w: 100, h: 150 };       // the place for the bed
   const FURN = { x: 176, y: 280, w: 60, h: 52 };      // the place for the stone furnace
+  const TABLE = { x: 488, y: 192, w: 44, h: 44 };     // the place for a crafting table
+  const CHEST = { x: 240, y: 90, w: 64, h: 38 };      // the place for a chest
+  const TROPHIES = CONFIG.trophyShelf.trophies, SPOT = 26;                 // one place on the shelf for each trophy
+  const SHELF = { x: 410 - Math.round(TROPHIES.length * SPOT / 2) - 6, y: 82, w: TROPHIES.length * SPOT + 12, h: 18 };  // on the wall, between the little table and the bookshelf
   const DOGBED = { x: 362, y: 296, w: 56, h: 36 };    // a little bed for your dog
   const DOOR = { x1: 265, x2: 335 };                  // the opening at the bottom
   let open = false, tx = 0, ty = 0, raf = 0, last = 0, msg = '', msgT = 0;
@@ -16,6 +20,12 @@ const Tent = (() => {
                    ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right' };
 
   function rect(color, x, y, w, h) { g.fillStyle = color; g.fillRect(x, y, w, h); }
+  function dashed(box, label) {                       // an empty place, with a dashed outline
+    g.save(); g.setLineDash([6, 5]); g.strokeStyle = '#f1ede0'; g.lineWidth = 2;
+    g.strokeRect(box.x, box.y, box.w, box.h); g.restore();
+    g.fillStyle = '#f1ede0'; g.font = '600 12px system-ui, sans-serif'; g.textAlign = 'center';
+    g.fillText(label, box.x + box.w / 2, box.y + box.h / 2 + 4); g.textAlign = 'left';
+  }
 
   // Everything inside is drawn with simple blocks, like the rest of the game. Nothing moves.
   function draw() {
@@ -62,6 +72,35 @@ const Tent = (() => {
       g.fillStyle = '#f1ede0'; g.font = '600 12px system-ui, sans-serif'; g.textAlign = 'center';
       g.fillText('Furnace', FURN.x + 30, FURN.y + 30); g.textAlign = 'left';
     }
+    // The crafting table and the chest (or the dashed places where they go).
+    if (td.table) {
+      rect('#4a3424', TABLE.x + 3, TABLE.y + 3, TABLE.w, TABLE.h); rect('#6e4a2c', TABLE.x, TABLE.y, TABLE.w, TABLE.h);
+      rect('#b88b56', TABLE.x + 4, TABLE.y + 4, TABLE.w - 8, TABLE.h - 8);
+      for (let k = 1; k < 3; k++) { rect('#8a6437', TABLE.x + 4 + k * 12, TABLE.y + 4, 2, TABLE.h - 8); rect('#8a6437', TABLE.x + 4, TABLE.y + 4 + k * 12, TABLE.w - 8, 2); }
+    } else dashed(TABLE, 'Table');                      // the empty place, always shown (like the bed and the furnace)
+    if (td.chest) {
+      rect('#4a3424', CHEST.x + 3, CHEST.y + 3, CHEST.w, CHEST.h); rect('#6e4a2c', CHEST.x, CHEST.y, CHEST.w, CHEST.h);
+      rect('#b88b56', CHEST.x + 3, CHEST.y + 3, CHEST.w - 6, 12); rect('#b88b56', CHEST.x + 3, CHEST.y + 18, CHEST.w - 6, CHEST.h - 21);
+      rect('#9a9a95', CHEST.x + CHEST.w / 2 - 4, CHEST.y + 12, 8, 9); rect('#5c5c58', CHEST.x + CHEST.w / 2 - 1, CHEST.y + 15, 2, 4);
+    } else dashed(CHEST, 'Chest');
+    // The trophy shelf on the wall: a wooden board on two brackets. Each trophy has its own place.
+    const tr = td.trophies || {};
+    rect('#4a3424', SHELF.x + 2, SHELF.y + 12, SHELF.w, 6);                                   // its shadow on the wall
+    rect('#6e4a2c', SHELF.x + 4, SHELF.y + 14, 4, 8); rect('#6e4a2c', SHELF.x + SHELF.w - 8, SHELF.y + 14, 4, 8);   // brackets
+    rect('#b88b56', SHELF.x, SHELF.y + 10, SHELF.w, 6); rect('#8a6437', SHELF.x, SHELF.y + 15, SHELF.w, 2);          // the board
+    TROPHIES.forEach((id, k) => {
+      const cx = SHELF.x + 6 + k * SPOT + SPOT / 2, cy = SHELF.y + 1;
+      if (tr[id]) {                                                                           // the coin, standing up, gold and still
+        g.fillStyle = 'rgba(250, 204, 21, 0.18)'; g.beginPath(); g.arc(cx, cy, 15, 0, Math.PI * 2); g.fill();   // a soft, steady shine
+        g.fillStyle = '#a16207'; g.beginPath(); g.arc(cx, cy, 9, 0, Math.PI * 2); g.fill();
+        g.fillStyle = '#facc15'; g.beginPath(); g.arc(cx, cy, 7, 0, Math.PI * 2); g.fill();
+        rect('#fde68a', cx - 4, cy - 4, 3, 3);                                               // a little gleam
+        rect('#6e4a2c', cx - 4, cy + 8, 8, 2);                                               // a little wooden stand
+      } else {                                                                                // an empty place
+        g.save(); g.setLineDash([3, 3]); g.strokeStyle = 'rgba(241, 237, 224, 0.6)'; g.lineWidth = 1.5;
+        g.beginPath(); g.arc(cx, cy, 8, 0, Math.PI * 2); g.stroke(); g.restore();
+      }
+    });
     // A little dog bed. Your dog (if you have one) sleeps here.
     rect('#9c6a4a', DOGBED.x, DOGBED.y, DOGBED.w, DOGBED.h); rect('#c9a27a', DOGBED.x + 4, DOGBED.y + 4, DOGBED.w - 8, DOGBED.h - 8);
     if (Animals.hasPet()) {
@@ -117,10 +156,13 @@ const Tent = (() => {
 
   // Furniture you can't walk through: [x, y, width, height].
   function furniture() {
-    const list = [[192, 70, 40, 58], [320, 88, 60, 40], [440, 76, 90, 54], [496, 140, 32, 42],
+    const list = [[192, 70, 40, 58], [320, 88, 60, 40], [440, 76, 90, 54], [496, 140, 32, 42], [SHELF.x, SHELF.y, SHELF.w, SHELF.h],
                   [420, 200, 40, 34], [444, 238, 40, 34], [92, 284, 66, 46], [450, 286, 64, 50]];
     if (World.tentHasBed(tx, ty)) list.push([BED.x, BED.y, BED.w, BED.h]);
-    if (World.tentData(tx, ty).furnace) list.push([FURN.x, FURN.y, FURN.w, FURN.h]);
+    const td = World.tentData(tx, ty);
+    if (td.furnace) list.push([FURN.x, FURN.y, FURN.w, FURN.h]);
+    if (td.table) list.push([TABLE.x, TABLE.y, TABLE.w, TABLE.h]);
+    if (td.chest) list.push([CHEST.x, CHEST.y, CHEST.w, CHEST.h]);
     return list;
   }
   function overlaps(x, y, [fx, fy, fw, fh]) { return x + R0 > fx && x - R0 < fx + fw && y + R0 > fy && y - R0 < fy + fh; }
@@ -133,13 +175,16 @@ const Tent = (() => {
     // so you can always walk out (you can never get stuck).
     return furniture().some(f => overlaps(x, y, f) && !overlaps(me.x, me.y, f));
   }
-  function near(box) {
+  function near(box, extra = 0) {                    // extra: a little more reach for places in a tight corner
     const dx = Math.max(box.x - me.x, 0, me.x - (box.x + box.w));
     const dy = Math.max(box.y - me.y, 0, me.y - (box.y + box.h));
-    return Math.hypot(dx, dy) < R0 + 16;
+    return Math.hypot(dx, dy) < R0 + 16 + extra;
   }
   function nearBed() { return near(BED); }
   function nearFurnace() { return near(FURN); }
+  function nearTable() { return near(TABLE, 14); }   // the table is in a corner: easier to reach
+  function nearChest() { return near(CHEST); }
+  function nearShelf() { return near({ x: SHELF.x, y: SHELF.y, w: SHELF.w, h: SHELF.h + 14 }); }
   // When something is placed where you stand, step to a free spot next to it.
   function stepAside(box) {
     if (!overlaps(me.x, me.y, [box.x, box.y, box.w, box.h])) return;
@@ -153,6 +198,21 @@ const Tent = (() => {
 
   function say(t) { msg = t; msgT = 3; }
   function hint() {
+    const td = World.tentData(tx, ty), held = Inventory.selectedItem();
+    if (nearTable() && (td.table || (held && held.id === 'table')))
+      return td.table ? 'Your crafting table. R: craft (the big 3 × 3 grid) · F: take the table.' : 'Q: put your crafting table here.';
+    if (nearChest() && (td.chest || (held && held.id === 'storage')))
+      return td.chest ? 'Your chest. R: open it · F: take the chest (empty it first).' : 'Q: put your chest here.';
+    const tr = td.trophies || {};
+    if (nearShelf()) {
+      if (held && CONFIG.items[held.id].trophy && !tr[held.id]) return 'Your trophy shelf. Q: put your trophy here.';
+      const on = TROPHIES.filter(id => tr[id]).length;
+      if (on) return `Your trophy shelf: ${on} of ${TROPHIES.length} trophies. F: take a trophy back.`;
+      return 'Your trophy shelf. Find trophies in the caves and put them here (Q).';
+    }
+    if (held && CONFIG.items[held.id].trophy && !tr[held.id]) return 'Your trophy shelf is on the wall at the top, between the little table and the bookshelf. Walk there and press Q.';
+    if (held && held.id === 'table' && !td.table) return 'Your crafting table goes on the right, by the cushions (dashed square). Walk there and press Q.';
+    if (held && held.id === 'storage' && !td.chest) return 'Your chest goes at the top, next to the lantern (dashed square). Walk there and press Q.';
     if (nearFurnace()) {
       const f = World.furnace(World.tentData(tx, ty).furnace);
       if (!f) return 'Your furnace goes here. Choose the stone furnace with a number key and press Q.';
@@ -196,32 +256,81 @@ const Tent = (() => {
     Mechanics.count('placed', 'furnaceInTent');
     say('Your furnace is ready. Hold raw meat and press R to cook.');
   }
+  // Q: put the crafting table or the chest in its place.
+  function placeThing(id) {
+    const td = World.tentData(tx, ty), table = id === 'table', box = table ? TABLE : CHEST, key = table ? 'table' : 'chest';
+    const name = table ? 'crafting table' : 'chest';
+    if (!(table ? nearTable() : nearChest())) return say(table ? 'Walk to the dashed square on the right, by the cushions. Your crafting table goes there.'
+                                     : 'Walk to the dashed square at the top, next to the lantern. Your chest goes there.');
+    if (td[key]) return say(`Your ${name} is already here.`);
+    Inventory.takeOne(Inventory.selected());
+    td[key] = table ? true : new Array(CONFIG.storage.slots).fill(null);
+    stepAside(box);
+    Mechanics.count('placed', table ? 'tableInTent' : 'storageInTent');
+    say(table ? 'Your crafting table is in your tent. R: craft.' : 'Your chest is in your tent. R: open it and put your things away.');
+  }
+  // Q with a trophy: put it on its place on the shelf.
+  function placeTrophy(id) {
+    const td = World.tentData(tx, ty);
+    if (!nearShelf()) return say('Walk to the trophy shelf on the wall at the top, between the little table and the bookshelf.');
+    td.trophies = td.trophies || {};
+    if (td.trophies[id]) return say('This trophy is already on your shelf.');
+    Inventory.takeOne(Inventory.selected());
+    td.trophies[id] = true;
+    Sound.chime();
+    Mechanics.count('placed', 'trophy');
+    say(`Your ${CONFIG.items[id].name} is on your trophy shelf. Well done!`);
+  }
+  // F at the shelf: take a trophy back (the last one you put there).
+  function takeTrophy() {
+    const tr = World.tentData(tx, ty).trophies || {}, id = [...TROPHIES].reverse().find(t => tr[t]);
+    if (!id) return false;
+    if (Inventory.add(id, 1)) { say('There is no space in your inventory.'); return true; }
+    tr[id] = false;
+    say(`You took your ${CONFIG.items[id].name}.`);
+    return true;
+  }
   function placeQ() {
     const s = Inventory.selectedItem();
+    if (s && CONFIG.items[s.id].trophy) return placeTrophy(s.id);
+    if (s && (s.id === 'table' || s.id === 'storage')) return placeThing(s.id);
     if (nearFurnace() || (s && s.id === 'furnace')) return placeFurnace();
     return placeBed();
   }
-  // R at the furnace: put raw meat in (uses coal), or take the cooked meat out.
-  function useFurnace() {
-    const f = World.furnace(World.tentData(tx, ty).furnace), F = CONFIG.furnace;
+  // F: take the crafting table or the chest back (the chest must be empty).
+  function takeThing(table) {
+    const td = World.tentData(tx, ty);
+    if (table ? !td.table : !td.chest) return false;
+    if (!table && td.chest.some(Boolean)) { say('Take everything out of the chest first.'); return true; }
+    if (Inventory.add(table ? 'table' : 'storage', 1)) { say('There is no space in your inventory.'); return true; }
+    if (table) td.table = false; else td.chest = null;
+    say(table ? 'You took your crafting table.' : 'You took your chest.');
+    return true;
+  }
+  // R at a furnace (in the tent or outside): put raw meat in (uses coal), or take the cooked meat out.
+  // Returns the message to show.
+  function furnaceUse(furnaceData) {
+    const f = World.furnace(furnaceData), F = CONFIG.furnace;
+    if (!f) return null;
     const s = Inventory.selectedItem(), item = s && CONFIG.items[s.id];
     if (item && item.cooksInto) {
-      if (f.cooking.length >= F.maxPieces) return say(`The furnace is full (${F.maxPieces} pieces). Wait a little.`);
+      if (f.cooking.length >= F.maxPieces) return `The furnace is full (${F.maxPieces} pieces). Wait a little.`;
       if (f.fuel <= 0) {
-        if (!Inventory.count('coal')) return say('The furnace needs coal. Bring some coal and try again.');
+        if (!Inventory.count('coal')) return 'The furnace needs coal. Bring some coal and try again.';
         Inventory.take('coal', 1); f.fuel += F.piecesPerCoal;
       }
       Inventory.takeOne(Inventory.selected());
       f.fuel--; f.cooking.push([0, s.id]);
-      return say(`The ${item.name.toLowerCase()} is cooking in the furnace.`);
+      return `The ${item.name.toLowerCase()} is cooking in the furnace.`;
     }
     if (World.furnaceReady(f)) {
       let got = 0;
       Object.keys(f.done).forEach(id => { const left = Inventory.add(id, f.done[id]); got += f.done[id] - left; f.done[id] = left; });
-      return say(got ? `You took ${got} cooked food. Yum!` : 'There is no space in your inventory.');
+      return got ? `You took ${got} cooked food. Yum!` : 'There is no space in your inventory.';
     }
-    return say(f.cooking.length ? 'The food is still cooking. Wait a little.' : 'Hold raw meat or fish and press R to cook it.');
+    return f.cooking.length ? 'The food is still cooking. Wait a little.' : 'Hold raw meat or fish and press R to cook it (it uses coal).';
   }
+  function useFurnace() { say(furnaceUse(World.tentData(tx, ty).furnace)); }
   // F at the furnace: take it back (with the meat inside).
   function takeFurnace() {
     const td = World.tentData(tx, ty), f = World.furnace(td.furnace);
@@ -233,8 +342,20 @@ const Tent = (() => {
     td.furnace = null;
     say('You took your furnace.');
   }
-  function useR() { if (nearFurnace() && World.tentData(tx, ty).furnace) return useFurnace(); sleep(); }
-  function useF() { if (nearFurnace()) return takeFurnace(); takeBed(); }
+  function useR() {
+    const td = World.tentData(tx, ty);
+    if (nearTable() && td.table) { keys.clear(); return InventoryScreen.openTable(); }
+    if (nearChest() && td.chest) { keys.clear(); return InventoryScreen.openChest(td.chest); }
+    if (nearFurnace() && td.furnace) return useFurnace();
+    sleep();
+  }
+  function useF() {
+    if (nearShelf() && takeTrophy()) return;
+    if (nearTable() && takeThing(true)) return;
+    if (nearChest() && takeThing(false)) return;
+    if (nearFurnace()) return takeFurnace();
+    takeBed();
+  }
 
   // R: sleep in the bed.
   function sleep() {
@@ -267,6 +388,7 @@ const Tent = (() => {
     diff = Math.atan2(Math.sin(diff), Math.cos(diff));
     me.angle += diff * Math.min(1, dt * 12);
     if (me.y > 362) { close(); return; }                          // walked out of the door
+    if (InventoryScreen.isOpen()) keys.clear();
     msgT = Math.max(0, msgT - dt);
     statusEl.textContent = msgT > 0 ? msg : hint();
     World.cookFurnaces(dt);                      // the furnace keeps cooking while you are inside
@@ -301,7 +423,7 @@ const Tent = (() => {
 
   document.getElementById('tentLeave').addEventListener('click', close);
   window.addEventListener('keydown', e => {
-    if (!open) return;
+    if (!open || e.invClosed || InventoryScreen.isOpen()) return;   // the chest or table screen is open on top (or just closed)
     const k = keyMap[e.code];
     if (k) { keys.add(k); e.preventDefault(); return; }
     if (e.repeat) return;
@@ -320,5 +442,5 @@ const Tent = (() => {
     return f && f.cooking.length ? 0.75 : 0;
   }
 
-  return { open: openTent, close, isOpen: () => open, fireLevel };
+  return { open: openTent, close, isOpen: () => open, fireLevel, furnaceUse };
 })();
