@@ -5,8 +5,9 @@ const InventoryScreen = (() => {
   const cursorEl = document.getElementById('cursorItem');
   let open = false, gridSize = 2, grid = [], cursor = null, bookOpen = true, drag = null, message = '';
   let near = { campfire: false };
+  let chest = null;                                  // the slots of the chest you opened (or null)
 
-  const arrFor = area => area === 'inv' ? Inventory.slots : grid;
+  const arrFor = area => area === 'inv' ? Inventory.slots : area === 'chest' ? chest : grid;
   const max = id => Inventory.maxStack(id);
   const isDragOver = (area, i) => drag && drag.mode === 'spread' && drag.visited.length > 1 &&
                                   drag.visited.some(v => v.area === area && v.i === i);
@@ -23,6 +24,19 @@ const InventoryScreen = (() => {
     for (let i = H; i < inv.length; i++) backpack += slot('inv', i, inv[i]);
     for (let i = 0; i < H; i++) hotbar += slot('inv', i, inv[i], i === sel ? 'sel' : '');
     const title = gridSize === 3 ? 'Crafting table' : 'Crafting';
+    if (chest) {                                     // a chest: its slots on top, your things below
+      panel.innerHTML = `
+      <div class="label">Chest</div>
+      <div class="slots" style="grid-template-columns: repeat(9, var(--slot))">${chest.map((s, i) => slot('chest', i, s)).join('')}</div>
+      <div class="note">Click or drag to move things · Shift + click: move a whole stack in or out</div>
+      <div class="label">Inventory</div>
+      <div class="slots">${backpack}</div>
+      <div class="slots hotrow">${hotbar}</div>
+      <div class="note">E: close</div>`;
+      renderBook();
+      renderCursor();
+      return;
+    }
     panel.innerHTML = `
       <div class="label">${title}</div>
       <div class="craftArea">
@@ -45,8 +59,8 @@ const InventoryScreen = (() => {
 
   // The recipe book shows the shape of every recipe.
   function renderBook() {
-    book.classList.toggle('open', bookOpen);
-    if (!bookOpen) return;
+    book.classList.toggle('open', bookOpen && !chest);
+    if (!bookOpen || chest) return;
     const scroll = book.scrollTop;                     // keep the list where it was
     book.innerHTML = '<div class="label">Recipes</div>' + CONFIG.recipes.map(rc => {
       const cols = rc.pattern[0].length;
@@ -113,6 +127,20 @@ const InventoryScreen = (() => {
     }
   }
 
+  // Put n items into the slots of arr (stacks first, then empty slots). Returns how many did not fit.
+  function addToArr(arr, id, n) {
+    for (let i = 0; i < arr.length && n > 0; i++) { const s = arr[i]; if (s && s.id === id && s.n < max(id)) { const m = Math.min(n, max(id) - s.n); s.n += m; n -= m; } }
+    for (let i = 0; i < arr.length && n > 0; i++) if (!arr[i]) { const m = Math.min(n, max(id)); arr[i] = { id, n: m }; n -= m; }
+    return n;
+  }
+  // With a chest open, Shift + click moves a whole stack between the chest and your inventory.
+  function chestMove(area, i) {
+    const from = arrFor(area), s = from[i];
+    if (!s) return;
+    from[i] = null;
+    const left = area === 'chest' ? Inventory.addTo(s.id, s.n, 0, Inventory.slots.length) : addToArr(chest, s.id, s.n);
+    if (left) from[i] = { id: s.id, n: left };
+  }
   // Shift + click: move a whole stack between the hotbar and the backpack.
   function quickMove(i) {
     const s = Inventory.slots[i];
@@ -209,27 +237,47 @@ const InventoryScreen = (() => {
     render();
   });
 
+  // The hotbar at the bottom of the screen works too: it is the same 10 slots as the bottom row here.
+  function hudSlotAt(x, y) {
+    for (const h of document.querySelectorAll('#hotbar .hslot[data-hot]')) {
+      const r = h.getBoundingClientRect();
+      if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return { area: 'inv', i: +h.dataset.hot };
+    }
+    return null;
+  }
   function slotAt(x, y) {
+    const hud = hudSlotAt(x, y);
+    if (hud) return hud;
     const el = document.elementFromPoint(x, y);
     const s = el && el.closest && el.closest('#invPanel .slot[data-area]');
     return s ? { area: s.dataset.area, i: +s.dataset.i } : null;
   }
 
+  // A click (or the start of a drag) on a slot here, or on the hotbar at the bottom of the screen.
+  screen.addEventListener('mousedown', e => {
+    if (e.target.closest('#invPanel') || e.target.closest('#book')) return;
+    const hud = hudSlotAt(e.clientX, e.clientY);
+    if (hud) slotDown(e, hud.area, hud.i);
+  });
   panel.addEventListener('mousedown', e => {
     const el = e.target.closest('.slot[data-area]');
     if (!el) {
       if (e.target.closest('[data-book]')) { bookOpen = !bookOpen; render(); }
       return;
     }
+    slotDown(e, el.dataset.area, +el.dataset.i);
+  });
+  function slotDown(e, area, i) {
     e.preventDefault();
-    const area = el.dataset.area, i = +el.dataset.i, right = e.button === 2;
+    const right = e.button === 2;
     if (area === 'result') { e.shiftKey ? craftAll() : craftOnce(); message = ''; }
+    else if (e.shiftKey && !cursor && chest && (area === 'inv' || area === 'chest')) chestMove(area, i);
     else if (e.shiftKey && !cursor && area === 'inv') quickMove(i);
     else if (!cursor) { pickUp(area, i, right); if (cursor) drag = { mode: 'carry', area, i }; }
     else drag = { mode: 'spread', one: right, visited: [{ area, i }] };
     Inventory.changed();
     render();
-  });
+  }
 
   window.addEventListener('mousemove', e => {
     cursorEl.style.left = e.clientX + 'px';
@@ -259,10 +307,12 @@ const InventoryScreen = (() => {
 
   screen.addEventListener('contextmenu', e => e.preventDefault());
 
-  function show() {
+  // opts.chest: the slots of a chest to open.  opts.table: you are at a crafting table (the one in your tent).
+  function show(opts = {}) {
     open = true;
     Mechanics.clearKeys();
-    gridSize = Mechanics.nearTable() ? 3 : 2;
+    chest = opts.chest || null;
+    gridSize = opts.table || Mechanics.nearTable() ? 3 : 2;
     near = { campfire: Mechanics.nearCampfire() };
     grid = new Array(gridSize * gridSize).fill(null);
     cursor = null; drag = null; message = '';
@@ -277,7 +327,7 @@ const InventoryScreen = (() => {
     if (cursor) back.push(cursor);
     const pl = Mechanics.player;
     back.forEach(s => { const left = Inventory.add(s.id, s.n); if (left) Drops.spawn(s.id, left, pl.x, pl.y); });
-    grid = []; cursor = null; drag = null;
+    grid = []; cursor = null; drag = null; chest = null;
     renderCursor();
     open = false;
     Mechanics.clearKeys();
@@ -287,9 +337,14 @@ const InventoryScreen = (() => {
 
   window.addEventListener('keydown', e => {
     if (e.repeat) return;
-    if (e.code === 'KeyE' && !Screens.busy()) { e.preventDefault(); if (!open && Under.useE()) return; open ? close() : show(); }
-    else if (e.code === 'Escape' && open) close();
+    if (e.code === 'KeyE' && (open || !Screens.busy())) {
+      e.preventDefault();
+      if (open) { e.invClosed = true; return close(); }        // the tent behind stays open
+      if (Under.useE()) return;
+      show({ chest: Mechanics.storageInFront() });       // facing your chest: E opens it
+    }
+    else if (e.code === 'Escape' && open) { e.preventDefault(); e.invClosed = true; close(); }
   });
 
-  return { isOpen: () => open, close };
+  return { isOpen: () => open, close, openChest: slots => show({ chest: slots }), openTable: () => show({ table: true }) };
 })();
