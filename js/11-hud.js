@@ -120,7 +120,7 @@ const Hotbar = (() => {
     let html = '';
     for (let i = 0; i < Inventory.H; i++) {
       const s = Inventory.slots[i];
-      html += `<div class="hslot ${i === sel ? 'sel' : ''}"><span class="num">${(i + 1) % 10}</span>${s ? Icons.img(s.id, s.n) : ''}</div>`;
+      html += `<div class="hslot ${i === sel ? 'sel' : ''}" data-hot="${i}"><span class="num">${(i + 1) % 10}</span>${s ? Icons.img(s.id, s.n) : ''}</div>`;
     }
     el.innerHTML = html;
   }
@@ -145,13 +145,16 @@ const Hotbar = (() => {
         : it.gun ? `${it.name} ${Mechanics.loaded()}/${CONFIG.rifle.shots} · F: shoot · R: reload`
         : it.sling ? `${it.name} · F: shoot garlic (${Inventory.count('garlic')} garlic)`
         : s.id === 'garlic' ? 'Garlic · Q: plant it · keeps vampires away while you hold it'
-        : it.saw ? 'Chainsaw · F: cuts a tree in one go, very fast. Only for trees and wood'
+        : it.saw ? 'Chainsaw · F: cuts a tree in one go, very fast. Also hunts animals and fights bad guys'
         : it.rod ? 'Fishing rod · face the water and press F. When a fish bites, press F again'
         : s.id === 'key' ? 'Gate key · R at a closed gate: lock or unlock it'
         : s.id === 'bone' ? 'Bone · a treat for wolves: R facing a wolf to feed it'
         : s.id === 'gate' ? 'Wooden gate (2 squares wide) · Q: place it across the way you are facing'
-        : s.id === 'coin' ? "Knight's Quest trophy coin · a secret prize from the hidden chest"
-        : s.id === 'shelf' ? 'Trophy shelf · Q: place it at your base, then R to put your coins on it' : it.name);
+        : s.id === 'coin' ? "Knight's Quest trophy coin · a trophy: put it on the shelf in your tent (Q)"
+        : s.id === 'shelf' ? 'Trophy shelf · Q: place it at your base, then R to put your coins on it'
+        : s.id === 'storage' ? 'Chest · Q: place it (outside or inside your tent), then R to open it'
+        : s.id === 'furnace' ? 'Stone furnace · Q: place it (outside or inside your tent), then R with raw meat to cook'
+        : s.id === 'table' ? 'Crafting table · Q: place it (outside or inside your tent)' : it.name);
   });
 
   Inventory.onChange(render);
