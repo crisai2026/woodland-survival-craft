@@ -47,7 +47,9 @@ No story for now.
 | Q | Place the chosen item on the square in front of you |
 | R (hold) / right mouse button | Eat the chosen food |
 | R facing a campfire | Put raw meat on it to cook |
-| R facing your tent | Go inside the tent (place your bed, sleep) |
+| R facing your tent | Go inside the tent (place your bed, furnace, crafting table, chest; sleep) |
+| R (or E) facing a chest | Open it: put your things away or take them out |
+| R facing a furnace | Put raw meat or fish in (uses coal), or take the cooked food |
 | F with the rifle in your hand | Shoot |
 | R with the rifle in your hand | Reload (takes ammo from your inventory) |
 | F with the slingshot in your hand | Shoot garlic |
@@ -81,6 +83,7 @@ No story for now.
 - Crafting grid at the top, 20 backpack slots, then the same 10 hotbar slots.
 - Click a slot to pick up, click another to put down (or swap / stack).
 - Drag: press on a slot, move, let go on another slot to drop the items there.
+- The hotbar at the bottom of the screen works too while the inventory is open: drag (or click) items straight onto it.
 - Holding items, drag across several slots to share them out
   (left button: share evenly, right button: one in each).
 - Right-click: put down one item, or pick up half a stack.
@@ -119,6 +122,7 @@ No story for now.
 | Wooden gate | 2 rows of: stick, plank, stick | table |
 | Gate key | 1 iron above 1 stick | anywhere |
 | Fishing rod | 3 sticks in a diagonal, 2 wool hanging down as the line | table |
+| Chest | 8 planks in a ring | table |
 
 **Breaking things (F)**
 
@@ -136,8 +140,11 @@ No story for now.
 - **Axes, step by step:** wooden axe (3 hits for a tree, like the axe you start with) → stone axe (2 hits)
   → iron axe (1 hit) → **chainsaw**. You always use the best axe you carry.
 - **Chainsaw:** hold it and press F: a tree is cut in one go, and it cuts again very quickly (every 0.15 s),
-  with a soft, low "brrr" (never loud). It is only for trees and wooden things: it never hits animals
-  ("The chainsaw is only for trees and wood"), and it doesn't count for hunting.
+  with a soft, low "brrr" (never loud). It can't cut stone ("The chainsaw can't cut stone. Use a pickaxe.").
+- **The chainsaw also hunts and fights:** on animals and bad guys one cut = 4 axe hits (like a rifle shot), one cut every
+  0.4 seconds (calm, like the axe; CONFIG.tools.chainsawHunt and chainsawHuntCooldown). Wolf: 1 cut,
+  zombie or skeleton: 2 cuts, bear: 3 cuts, werewolf: 4 cuts. No blood. It never hits your dog.
+  The vampire still only fears garlic ("The vampire doesn't feel it. Try garlic!").
 - Edge-of-world trees cannot be chopped.
 
 **Animals** — food chain: rabbit, fox, wolf, deer, moose, bear.
@@ -191,14 +198,30 @@ A stone sword (or stone axe) hunts with power 2, so big animals need fewer hits.
   "You can't place your bed outside of your tent. Face your tent and press R to go inside, then place it there."
   (Beds that were already outside in old saves still work.)
 
-**Stone furnace (inside the tent)**
-- Recipe: 8 stone in a ring (crafting table). Like the bed, it only goes inside your tent
-  (pressing Q outside shows the same kind of pop-up).
+**Stone furnace (outside or inside the tent)**
+- Recipe: 8 stone in a ring (crafting table).
+- Outside: Q places it on the square in front of you, like a crafting table. F with a pickaxe breaks it
+  (you get it back, with the meat inside). It glows warm while it cooks.
 - Inside the tent it has its own place by the firewood. Q places it, F takes it back (with the meat inside).
 - Hold raw meat or fish and press R next to it: it goes in (up to 8). One coal cooks 4 pieces.
   It cooks one piece at a time (6 seconds each), with a steady warm glow and a small progress bar,
   also while you are away. R with anything else takes the cooked meat out.
 - While it cooks, you hear a soft fire crackle inside the tent.
+
+**Crafting table inside the tent**
+- The crafting table can go outside (as before) or inside your tent, in its own place on the right, by the cushions.
+  A dashed square always shows the place (like the bed and the furnace). Q puts it there, R opens crafting with the big 3 × 3 grid,
+  F takes it back. E closes the crafting screen; you stay in the tent.
+
+**Chest** (for keeping your things)
+- Recipe: 8 planks in a ring (crafting table). 27 slots (3 rows of 9, like Minecraft; CONFIG.storage.slots).
+- Outside: Q places it in front of you. Inside your tent: its own place at the top, next to the lantern
+  (a dashed square always shows it).
+- R (or E) facing it opens it: the chest on top, your inventory below. Click or drag to move things,
+  Shift + click moves a whole stack in or out. E or Esc closes it.
+- What you put in stays there, also after saving.
+- A chest with things in it can't be broken or taken ("Take everything out of the chest first."),
+  and a tent with a full chest inside can't be broken either. Empty, it comes back to you.
 
 **Your dog**
 - Hold meat (raw or cooked) and press R facing a wolf: it likes the meat and a small heart shows.
@@ -276,7 +299,8 @@ In the daytime: "The mushrooms seem to be waiting for the night..."
   one comes; nothing is lost. F before a bite pulls the line in. Walking away or changing item pulls it in too.
 - Fish are food: eat them raw (hold R) or cook them on a campfire or in the stone furnace, like meat.
 
-**Placing (Q)**: crafting table, tent, campfire, torch, wooden wall, stone wall, gate, garlic (planting).
+**Placing (Q)**: crafting table, tent, campfire, torch, wooden wall, stone wall, gate, stone furnace, chest, garlic (planting).
+Inside the tent: bed, stone furnace, crafting table, chest (each in its own place).
 **Sleeping**: inside your tent, in your bed, in the evening or at night. The screen fades slowly,
 the night passes, and you wake up in the morning. That bed or tent becomes your home.
 
@@ -324,17 +348,28 @@ they stay on the ground.
   **A quiet cave** (small, a pool), **A deep cave** (big), **A crystal cave** (biggest, glowing crystals, a pool).
 - **The secret treasure chest** (like in Knight's Quest): there is only **one**, in the minions' secret room in the deep cave.
   Press **E** (or R) next to it: the Knight's Quest chest sound, and a **Knight's Quest trophy coin** pops out.
-  Pick it up (the Knight's Quest coin sound): a secret prize, not money. Later it will go in your tent (still to plan).
+  Pick it up (the Knight's Quest coin sound): it is a **trophy**, not money. It goes in your inventory so you can carry it home.
   The chest stays empty after.
-- The trophy shelf is out of the game for now (no recipe), until we plan the trophy in the tent.
+- **The trophy shelf in your tent**: a small wooden shelf on the wall at the top, between the little table and the bookshelf.
+  It is always there (nothing to build). Each trophy has its own place (a faint dashed circle while it is empty).
+  Hold the trophy, walk to the shelf and press **Q**: it stands on the shelf (gold, with a soft steady shine), a chime plays,
+  "Well done!". It stays there (also after saving). **F** at the shelf takes it back. Breaking the tent gives it back too.
+  For now there is one trophy (CONFIG.trophyShelf.trophies); later we may add one for each secret room.
+- The old trophy shelf block (outside) is still out of the game (no recipe), kept only so old saves work.
 - **Knight's Quest secrets** (Easter eggs), one in the haunted mine, the deep cave and the crystal cave:
-  - The clue: a short tunnel that stops for no reason, with a tiny Knight's Quest sword faintly scratched in the floor.
+  - The clue: a short tunnel that stops for no reason, with a Knight's Quest sword scratched in the floor (easy to see
+    with your light, calm, no glow). Its tip points to the hidden rock. How clear it is: CONFIG.caves.swordMark.
   - At its end, a **hidden rock** that looks exactly like normal stone. Mining it sounds hollow ("This rock sounds hollow...").
   - Before you break in, the room is completely hidden: it looks like solid stone, nothing inside shows.
   - Breaking the rock (or any wall next to the room) **turns the lights on**: wall torches light one after another
     (a soft fade, no flash), a chime, "You broke through! A secret! ... (n of 3 secrets)". The room stays lit (also after saving).
-  - Inside a found room, **quiet, echoing ambient music from Knight's Quest** plays: the game's tunes, slower, with soft
-    round waves, a little muffled and with a cave echo (fades in and out; our own music waits).
+  - Once a room is found, **quiet, echoing ambient music from Knight's Quest** comes from it: the game's tunes, slower, played
+    smooth instead of 8-bit (soft sine tones with a gentle shimmer that swell in and ring out like a far-away bell), a little muffled, echoing like a real stone cave (CONFIG.sound.kqEcho): quick reflections off the nearby
+    walls (some left, some right), a soft far-wall echo, and a long smooth wash that gets darker as it fades. No repeating
+    "delay" sound. Far away you hear mostly the echo; inside the room, more of the music itself. No louder than before. Our own music waits.
+  - The music comes from the room, like a real sound: you start to hear it softly from the tunnel (up to 12 squares away,
+    CONFIG.sound.kqHearFrom), it gets louder and clearer as you come closer, it is full inside the room, and it slowly gets
+    quieter and more muffled as you walk away. Never sudden. Before the room is found, there is no music.
   1. Haunted mine: the Knight and the Princess resting together in two coffins (Knight's Quest "princess is free" tune).
   2. Deep cave: one room with the bones of all the Dragon's minions (furry, insect, tentacle and winged),
      scattered where they fell (different places and angles, loose bones), not in a row; one lies right next to the chest,
@@ -431,3 +466,18 @@ they stay on the ground.
   The Knight's Quest music in the secret rooms is quiet, slower and echoing (ambient).
 - Fix — No gold in the mine any more ("The haunted mine"). More cave sounds (air hum, pebbles, trickling water,
   bat squeaks, the rock settling). 14 bats in each cave, and little groups of bats fly past now and then.
+- Fix — The sword mark in the caves was too small and faint to see. Now it is bigger and clearer, and its tip points
+  to the hidden rock.
+- Fix — The secret-room music now fades with distance: soft from the tunnel, full inside the room, quieter and more
+  muffled as you walk away (before, it switched on and off at the room's edge).
+- Fix — The secret-room music is more echoey: its own long, repeating echo and a soft stone-hall reverb.
+- Fix — The secret-room music is less "pixely": smooth, bell-like tones instead of 8-bit sounds, same tunes and echo.
+- Fix — Realistic cave echo for the secret-room music: wall reflections, a far-wall echo and a fading cave wash
+  instead of a repeating echo.
+- Fix — The chainsaw now also hunts animals and fights bad guys (one cut = 4 axe hits, calm speed). Not the vampire.
+- Step 24 — Chests (8 planks, 27 slots) to keep your things, outside or inside the tent. The stone furnace can now go
+  outside too, and the crafting table inside the tent too (R: craft with the 3 × 3 grid).
+- Step 25 — The Knight's Quest coin is a trophy: carry it home and put it on the new trophy shelf in your tent (Q).
+  The crafting table place in the tent is a little easier to reach.
+- Fix — The item you carry with the mouse in the inventory was hidden behind the screen (after Step 24). It shows on top again.
+- Fix — You can drop items straight onto the hotbar at the bottom of the screen while the inventory is open.

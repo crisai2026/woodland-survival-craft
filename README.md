@@ -29,7 +29,8 @@ Works in any modern browser on a computer (keyboard needed). The game saves itse
 - Chop trees, mine stone, coal and iron, and craft tools step by step (a Goal box shows what to try next).
 - Hunt rabbits, foxes, deer, sheep, moose and bears. Wolves and bears attack, but calmly and fairly.
 - Cook meat on a campfire, keep your hearts and hunger up, sleep in your tent at night.
-- Walk inside your cozy tent: place your bed and a stone furnace.
+- Walk inside your cozy tent: place your bed, a stone furnace, a crafting table and a chest.
+- Make chests to keep your things in (outside or in your tent). Furnaces and crafting tables work outside or inside too.
 - Feed a wolf 3 times (meat or bones) and it becomes your dog.
 - Grow garlic, build walls and a wooden farm gate you can lock with a key.
 - At night: zombies, skeletons, a werewolf on full-moon nights, and a vampire that only fears garlic
