@@ -109,7 +109,7 @@ const Under = (() => {
     });
     if (coins.some(c => c.taken)) {
       coins = coins.filter(c => !c.taken);
-      if (!coins.length) { Sound.chime(); Hotbar.say("You found the Knight's Quest trophy coin! A secret prize, just for you."); }
+      if (!coins.length) { Sound.chime(); Hotbar.say("You found the Knight's Quest trophy coin! Take it home and put it on the trophy shelf in your tent."); }
     }
   }
   function drawCoins(ctx, camX, camY) {
@@ -151,9 +151,16 @@ const Under = (() => {
       const n = SECRETS.filter(k => st.secrets[k]).length;
       Hotbar.say(`You broke through! A secret! ${SECRET_TEXT[r.key]} (${n} of ${SECRETS.length} secrets)`);
     });
-    const tx = pl.x / ts, ty = pl.y / ts;               // inside a found room: music from Knight's Quest
-    const room = cv.secrets.find(r => r.revealed && tx >= r.x && ty >= r.y && tx <= r.x + r.w && ty <= r.y + r.h);
-    Sound.kqMusic(room ? SECRET_MUSIC[room.key] : null);
+    // Music from Knight's Quest comes from a found room: soft from the tunnel, full inside, fading as you walk away.
+    const tx = pl.x / ts, ty = pl.y / ts, far = CONFIG.sound.kqHearFrom;
+    let room = null, level = 0;
+    cv.secrets.forEach(r => {
+      if (!r.revealed) return;
+      const dx = Math.max(r.x - tx, 0, tx - (r.x + r.w)), dy = Math.max(r.y - ty, 0, ty - (r.y + r.h));
+      const lv = Math.pow(Math.max(0, 1 - Math.hypot(dx, dy) / far), 1.5);   // 1 inside the room, 0 far away
+      if (lv > level) { level = lv; room = r; }
+    });
+    Sound.kqMusic(room ? SECRET_MUSIC[room.key] : null, level);
   }
   // The torches in a secret room: on the walls, away from the chest. lit: 0 (dark) to 1, one after another.
   function roomTorches(r) {

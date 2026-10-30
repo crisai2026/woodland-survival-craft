@@ -385,36 +385,97 @@ const Sound = (() => {
       lead: ['A3', null, 'C4', null, 'A3', 'G#3', null, null, 'F3', null, 'E3', null, null, 'D#3', null, null],
       bass: ['A1', null, null, null, 'F1', null, null, null, 'D1', null, null, null, 'E1', null, null, null] }
   };
-  let kqGain = null, kqTimer = null, kqTrack = null, kqStep = 0;
-  // The tunes of Knight's Quest, played as quiet cave ambience: softer waves, slower, with long echoes.
+  let kqGain = null, kqTimer = null, kqTrack = null, kqStep = 0, kqLevel = -1, kqLp = null, kqDry = null;
+  // The tunes of Knight's Quest, played as quiet cave ambience: slower, with long echoes.
+  // Smooth, not 8-bit: each note is two soft sine waves a tiny bit apart (a gentle shimmer) plus a very quiet
+  // higher one for warmth. It swells in slowly and rings out, like a soft bell far away.
   function kqNote(freq, wave, ms, vol) {
-    const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain(), dur = ms / 1000;
-    o.type = wave === 'square' || wave === 'sawtooth' ? 'triangle' : wave;   // no sharp waves: calm and round
-    o.frequency.setValueAtTime(freq, t);
+    const t = ac.currentTime, g = ac.createGain(), dur = ms / 1000, att = CONFIG.sound.kqSoftness;
+    const end = t + att + dur * 1.6;
     g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(vol, t + 0.06);                       // soft start
-    g.gain.exponentialRampToValueAtTime(0.0001, t + dur * 1.4);               // longer fade
-    o.connect(g).connect(kqGain); o.start(t); o.stop(t + dur * 1.5);
+    g.gain.exponentialRampToValueAtTime(vol, t + att);                        // swells in, never a click
+    g.gain.exponentialRampToValueAtTime(0.0001, end);                         // long, soft ring-out
+    g.connect(kqGain);
+    [[-4, 0.62], [4, 0.62], [1200, 0.1]].forEach(([cents, amt]) => {           // shimmer pair + a soft octave above
+      const o = ac.createOscillator(), og = ac.createGain();
+      o.type = 'sine'; o.frequency.setValueAtTime(freq, t); o.detune.setValueAtTime(cents, t);
+      og.gain.value = amt; o.connect(og).connect(g); o.start(t); o.stop(end + 0.05);
+    });
   }
   // track: 'cheery', 'beautiful', 'creepy', or null to stop. Our own music waits while it plays.
-  function kqMusic(track) {
-    if (track === kqTrack || !ensure()) return;
+  // level: 0 to 1, how close you are to the room (1 = inside). Further away it is quieter and more muffled.
+  function setKqLevel(level) {
+    if (Math.abs(level - kqLevel) < 0.01) return;
+    kqLevel = level;
+    const t = ac.currentTime;
+    kqGain.gain.cancelScheduledValues(t);
+    kqGain.gain.setTargetAtTime(CONFIG.sound.kqMusic * level, t, 0.6);           // slow and smooth, never sudden
+    kqLp.frequency.cancelScheduledValues(t);
+    kqLp.frequency.setTargetAtTime(500 + 1100 * level, t, 0.6);                  // from behind the rock: muffled
+    const E = CONFIG.sound.kqEcho;                                                // far away: mostly echo, little direct sound
+    kqDry.gain.cancelScheduledValues(t);
+    kqDry.gain.setTargetAtTime(E.dry * (E.dryFar + (1 - E.dryFar) * level), t, 0.6);
+  }
+  function kqMusic(track, level = 1) {
+    if (!ensure()) return;
+    if (!track) level = 0;
+    if (track === kqTrack) { if (kqGain && track) setKqLevel(level); return; }
     if (!kqGain) {                                        // a little muffled, as if from far inside the rock, and echoing
       kqGain = ac.createGain(); kqGain.gain.value = 0;
-      const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1600;
-      const send = ac.createGain(); send.gain.value = 0.9;
-      kqGain.connect(lp); lp.connect(sfxGain); lp.connect(send); send.connect(echoIn);
+      kqLp = ac.createBiquadFilter(); kqLp.type = 'lowpass'; kqLp.frequency.value = 1600;
+      kqGain.connect(kqLp);
+      const E = CONFIG.sound.kqEcho;
+      kqDry = ac.createGain(); kqDry.gain.value = E.dry; kqLp.connect(kqDry); kqDry.connect(sfxGain);
+      const pan = (node, p) => { if (!ac.createStereoPanner) return node; const sp = ac.createStereoPanner(); sp.pan.value = p; node.connect(sp); return sp; };
+      // Quick reflections off the nearby rock walls: many small echoes, a little apart, some left, some right,
+      // each one darker (rock swallows the high sounds). They blur together into the feeling of a stone room.
+      const early = ac.createGain(); early.gain.value = E.earlyMix;
+      const rockTone = ac.createBiquadFilter(); rockTone.type = 'lowpass'; rockTone.frequency.value = 2400;
+      kqLp.connect(rockTone);
+      for (let k = 0; k < E.early; k++) {
+        const ms = E.earlyMs[0] + (E.earlyMs[1] - E.earlyMs[0]) * (k + Math.random() * 0.8) / E.early;
+        const dl = ac.createDelay(1); dl.delayTime.value = ms / 1000;
+        const g = ac.createGain(); g.gain.value = (0.9 - 0.6 * k / E.early) * (0.7 + Math.random() * 0.3);
+        rockTone.connect(dl); dl.connect(g);
+        pan(g, (k % 2 ? 1 : -1) * (0.3 + Math.random() * 0.5)).connect(early);
+      }
+      early.connect(sfxGain);
+      // The far walls answer softly, once, a little later: darker and quieter, from both sides. No repeating.
+      const wallTone = ac.createBiquadFilter(); wallTone.type = 'lowpass'; wallTone.frequency.value = 1100;
+      kqLp.connect(wallTone);
+      E.wall.forEach((t, k) => {
+        const dl = ac.createDelay(2); dl.delayTime.value = t;
+        const g = ac.createGain(); g.gain.value = E.wallMix * (k ? 0.7 : 1);
+        wallTone.connect(dl); dl.connect(g); pan(g, k ? 0.6 : -0.6).connect(sfxGain);
+      });
+      // The long wash of a big cave (made inside the game): it starts a moment after the note, fades smoothly,
+      // and gets darker as it fades, because high sounds die out first in real caves. Left and right differ a little.
+      const sr = ac.sampleRate, len = Math.floor(sr * E.reverb), pre = Math.floor(sr * E.preDelay);
+      const ir = ac.createBuffer(2, len + pre, sr);
+      for (let ch = 0; ch < 2; ch++) {
+        const d = ir.getChannelData(ch); let lp = 0;
+        for (let i = 0; i < len; i++) {
+          const x = i / len, a = 0.15 + 0.8 * x;                             // the tone gets darker over time
+          lp = lp * a + (Math.random() * 2 - 1) * (1 - a);
+          const swell = Math.min(1, i / (sr * 0.04));                         // the wash builds up smoothly
+          d[i + pre] = lp * swell * Math.exp(-6.9 * x) * (1 + 1.5 * x);       // fades away (darker parts kept as loud)
+        }
+      }
+      const rev = ac.createConvolver(); rev.buffer = ir;
+      const revOut = ac.createGain(); revOut.gain.value = E.reverbMix;
+      kqLp.connect(rev); rev.connect(revOut); revOut.connect(sfxGain);
     }
     if (kqTimer) { clearInterval(kqTimer); kqTimer = null; }
     kqTrack = track;
     kqGain.gain.cancelScheduledValues(ac.currentTime);
     if (!track) {
-      kqGain.gain.setTargetAtTime(0, ac.currentTime, 0.4);
+      kqLevel = -1;
+      kqGain.gain.setTargetAtTime(0, ac.currentTime, 0.6);
       if (st.music) musicGain.gain.setTargetAtTime(0.8, ac.currentTime, 1.5);
       return;
     }
     musicGain.gain.setTargetAtTime(0, ac.currentTime, 0.4);
-    kqGain.gain.setTargetAtTime(CONFIG.sound.kqMusic, ac.currentTime, 0.5);   // fades in, never sudden
+    kqLevel = -1; setKqLevel(level);                      // fades in, never sudden
     const def = KQ_TRACKS[track], stepMs = def.stepMs * CONFIG.sound.kqSlower;   // slower: ambient, not a level
     kqStep = 0;
     kqTimer = setInterval(() => {
@@ -469,5 +530,5 @@ const Sound = (() => {
   showButtons();
 
   return { hit, rifle, click, reload, update, chime, timber, sling, splat, bats, gate, lock, toss, howl, cast, bite, catchFish, reel, chainsaw,
-           kqChest, kqCoin, flutter, kqMusic, squeaks: () => ac && squeaks(), kqPlaying: () => kqTrack, settings: () => ({ ...st }) };
+           kqChest, kqCoin, flutter, kqMusic, squeaks: () => ac && squeaks(), kqPlaying: () => kqTrack, kqLevel: () => kqLevel, settings: () => ({ ...st }) };
 })();

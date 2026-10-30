@@ -248,9 +248,10 @@ const Mechanics = (() => {
     player.cooldown = saw ? CONFIG.tools.chainsawCooldown : ACT.cooldown;
     const r = facingPoint(ACT.reach);
     const animal = Animals.findNear(r.x, r.y);
-    if (animal && saw) { Hotbar.say('The chainsaw is only for trees and wood. Choose another item to hunt.'); player.cooldown = 1; return; }
     if (animal) {
-      const drops = Animals.hit(animal, huntPower());
+      if (saw) player.cooldown = CONFIG.tools.chainsawHuntCooldown;    // calm, not a fast buzz on animals
+      const drops = Animals.hit(animal, saw ? CONFIG.tools.chainsawHunt : huntPower());
+      if (saw) Sound.chainsaw();
       Sound.hit('animal');
       if (drops) Object.entries(drops).forEach(([item, n]) => Drops.spawn(item, n, animal.x, animal.y));
       return;
@@ -262,7 +263,11 @@ const Mechanics = (() => {
     const power = toolPower(target.block.tool);
     if (power === 0) { Hotbar.say('You need a pickaxe for this. Make one at a crafting table.'); return; }
     if (power < (target.block.minPower || 0)) { Hotbar.say(`You need a stone pickaxe for ${target.name === 'gold' ? 'gold' : 'iron'}.`); return; }
-    if (saw && target.block.tool !== 'axe') { Hotbar.say('The chainsaw is only for trees and wood.'); player.cooldown = 1; return; }
+    if ((target.name === 'storage' || target.name === 'tent') && !World.storageEmpty(target.tx, target.ty)) {
+      Hotbar.say(target.name === 'tent' ? 'Take everything out of the chest in your tent first.' : 'Take everything out of the chest first.');
+      player.cooldown = 1; return;
+    }
+    if (saw && target.block.tool !== 'axe') { Hotbar.say('The chainsaw can\'t cut stone. Use a pickaxe.'); player.cooldown = 1; return; }
     if (saw) Sound.chainsaw(); else Sound.hit(target.name === 'crackedRock' ? 'hollow' : target.block.plant ? 'plant' : target.block.tool === 'pickaxe' ? 'stone' : 'wood');
     const drops = World.hitBlock(target.tx, target.ty, power);
     if (!drops && target.name === 'crackedRock') Hotbar.say('This rock sounds hollow...');
@@ -349,6 +354,10 @@ const Mechanics = (() => {
     if (chest) return { msg: Under.openChest(chest.tx, chest.ty), used: true };
     const shelf = thing('shelf');
     if (shelf) return { msg: Under.useShelf(shelf.tx, shelf.ty), used: true };
+    const box = thing('storage');                // your chest: open it
+    if (box) { InventoryScreen.openChest(World.storageAt(box.tx, box.ty)); return { msg: null, used: true }; }
+    const furn = thing('furnace');               // a furnace outside: cook with coal, or take the cooked food
+    if (furn) return { msg: Tent.furnaceUse(World.tentData(furn.tx, furn.ty).furnace), used: true };
     // Feed a wolf (raw or cooked meat). After a few times it becomes your dog.
     const held = Inventory.selectedItem(), heldItem = held && CONFIG.items[held.id];
     const wolf = Animals.findNear(r.x, r.y);
@@ -626,6 +635,12 @@ const Mechanics = (() => {
     loaded = d.loaded || 0;
   }
 
-  return { init, update, drawPlayer, player, survival, clearKeys, nearTable, nearCampfire, wakeUp,
+  // The chest just in front of you (its slots), or null. E opens it too.
+  function storageInFront() {
+    const r = facingPoint(ACT.reach);
+    const t = [World.tileOf(r.x, r.y), frontTile(1)].find(t => World.nameAt(t.tx, t.ty) === 'storage');
+    return t ? World.storageAt(t.tx, t.ty) : null;
+  }
+  return { init, update, drawPlayer, player, survival, clearKeys, nearTable, nearCampfire, wakeUp, storageInFront,
            save, load, count, hurt, cooked, drawShot, sleepHere, holding, toolPower, loaded: () => loaded, stats: () => stats };
 })();

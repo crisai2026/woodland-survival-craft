@@ -460,10 +460,16 @@ const World = (() => {
     const inside = tents.get(i);
     if (inside) {                              // everything inside a tent comes back too
       tents.delete(i);
-      const back = Object.assign({}, B[name].drops);
-      if (inside.bed) back.bed = 1;
+      const back = Object.assign({}, B[name].drops), add = (id, n) => { back[id] = (back[id] || 0) + n; };
+      if (name === 'tent') {                   // the things you placed inside the tent
+        if (inside.bed) add('bed', 1);
+        if (inside.furnace) add('furnace', 1);
+        if (inside.table) add('table', 1);
+        if (inside.chest) add('storage', 1);
+        Object.keys(inside.trophies || {}).forEach(id => { if (inside.trophies[id]) add(id, 1); });   // your trophies come back too
+      }
+      if (inside.chest) inside.chest.forEach(sl => { if (sl) add(sl.id, sl.n); });
       if (inside.furnace) {
-        back.furnace = 1;
         const f = furnace(inside.furnace);
         f.cooking.forEach(e => back[e[1]] = (back[e[1]] || 0) + 1);
         Object.entries(f.done).forEach(([id, n]) => { if (n) back[id] = (back[id] || 0) + n; });
@@ -486,6 +492,9 @@ const World = (() => {
     if (isBorder(tx, ty) || tileAt(tx, ty) !== GRASS) return false;
     tiles[ty * W.width + tx] = TILES[name];
     if (name === 'garlic0') crops.set(ty * W.width + tx, 0);   // planted garlic starts growing
+    tents.delete(ty * W.width + tx);
+    if (name === 'furnace') tentData(tx, ty).furnace = { fuel: 0, cooking: [], done: {} };
+    if (name === 'storage') tentData(tx, ty).chest = newChest();
     return true;
   }
 
@@ -537,11 +546,17 @@ const World = (() => {
     return null;
   }
 
+  // What is kept on a square: inside a tent (bed, furnace, table, chest), or in a furnace or chest outside.
   function tentData(tx, ty) {
     const i = ty * W.width + tx;
-    if (!tents.has(i)) tents.set(i, { bed: false, furnace: null });
+    if (!tents.has(i)) tents.set(i, { bed: false, furnace: null, table: false, chest: null });
     return tents.get(i);
   }
+  function newChest() { return new Array(CONFIG.storage.slots).fill(null); }
+  // The slots of the chest on this square (outside). Each slot: null or { id, n }, like the inventory.
+  function storageAt(tx, ty) { const d = tentData(tx, ty); if (!d.chest) d.chest = newChest(); return d.chest; }
+  // Is there nothing in the chest on this square (or in the chest inside the tent on this square)?
+  function storageEmpty(tx, ty) { const d = tents.get(ty * W.width + tx); return !d || !d.chest || d.chest.every(sl => !sl); }
   function tentHasBed(tx, ty) { const d = tents.get(ty * W.width + tx); return !!(d && d.bed); }
   function setTentBed(tx, ty, on) { tentData(tx, ty).bed = on; }
   // Cooking entries: [seconds, raw item]. Old saves stored only seconds (that was always meat).
@@ -556,7 +571,7 @@ const World = (() => {
     return f;
   }
   function furnaceReady(f) { return f ? Object.values(furnace(f).done).reduce((a, b) => a + b, 0) : 0; }
-  // Stone furnaces inside tents cook one piece at a time (also while you are away).
+  // Stone furnaces (inside tents and outside) cook one piece at a time (also while you are away).
   function cookFurnaces(dt) {
     tents.forEach(d => {
       const f = furnace(d.furnace);
@@ -1065,6 +1080,26 @@ const World = (() => {
       }
     }
   }
+  function drawFurnace(ctx, sx, sy, tx, ty) {           // a stone furnace: warm and orange inside while it cooks
+    const ts = W.tileSize, d = tents.get(ty * W.width + tx), burning = d && d.furnace && d.furnace.cooking && d.furnace.cooking.length;
+    if (burning) { ctx.fillStyle = 'rgba(242, 150, 70, 0.16)'; ctx.beginPath(); ctx.arc(sx + ts / 2, sy + ts / 2, 26, 0, Math.PI * 2); ctx.fill(); }
+    ctx.fillStyle = C.treeShadow; ctx.fillRect(sx + 7, sy + 7, ts - 8, ts - 8);
+    ctx.fillStyle = C.stone;      ctx.fillRect(sx + 4, sy + 4, ts - 8, ts - 8);
+    ctx.fillStyle = '#6f6f6b';
+    for (let r = 1; r < 4; r++) ctx.fillRect(sx + 4, sy + 4 + r * 8, ts - 8, 2);
+    for (let r = 0; r < 4; r++) ctx.fillRect(sx + (r % 2 ? 14 : 24), sy + 4 + r * 8, 2, 8);
+    ctx.fillStyle = '#2b2b2b';    ctx.fillRect(sx + 13, sy + 21, 14, 11);              // the opening
+    if (burning) { ctx.fillStyle = C.fireOuter; ctx.fillRect(sx + 15, sy + 25, 10, 7); ctx.fillStyle = C.fireInner; ctx.fillRect(sx + 18, sy + 27, 4, 4); }
+  }
+  function drawStorage(ctx, sx, sy) {                     // a wooden chest for your things
+    const x = sx + 5, y = sy + 8, w = 30, h = 24;
+    ctx.fillStyle = C.treeShadow; ctx.fillRect(x + 3, y + 3, w, h);
+    ctx.fillStyle = C.tableEdge;  ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = C.tableTop;   ctx.fillRect(x + 2, y + 2, w - 4, 8); ctx.fillRect(x + 2, y + 12, w - 4, h - 14);
+    ctx.fillStyle = C.tableLine;  ctx.fillRect(x + 2, y + 10, w - 4, 2);
+    ctx.fillStyle = '#9a9a95';    ctx.fillRect(x + w / 2 - 3, y + 8, 6, 6);           // the latch
+    ctx.fillStyle = '#5c5c58';    ctx.fillRect(x + w / 2 - 1, y + 10, 2, 3);
+  }
   function drawWoodWall(ctx, sx, sy, tx, ty)  { drawWall(ctx, sx, sy, tx, ty, C.woodWall, C.woodWallLine); }
   function drawStoneWall(ctx, sx, sy, tx, ty) { drawWall(ctx, sx, sy, tx, ty, C.stoneWall, C.stoneWallLine); }
 
@@ -1072,7 +1107,8 @@ const World = (() => {
     tree: drawTree, stone: drawStone, coal: drawCoal, iron: drawIron, table: drawTable, tent: drawTent,
     bed: drawBed, campfire: drawCampfire, torch: drawTorch, woodWall: drawWoodWall, stoneWall: drawStoneWall,
     garlicWild: drawGarlicWild, garlic0: drawGarlic0, garlic1: drawGarlic1, garlic2: drawGarlic2, gate: drawGate, water: drawWater, cave: drawCave,
-    caveRock: drawCaveRock, crackedRock: drawCracked, caveExit: drawCaveExit, chest: drawChest, glowShroom: drawGlowShroom, shelf: drawShelf, gold: drawGold
+    caveRock: drawCaveRock, crackedRock: drawCracked, caveExit: drawCaveExit, chest: drawChest, glowShroom: drawGlowShroom, shelf: drawShelf, gold: drawGold,
+    furnace: drawFurnace, storage: drawStorage
   };
 
   // Draw only the tiles that are on screen.
@@ -1131,7 +1167,7 @@ const World = (() => {
   }
 
   return { generate, spawnPoint, isSolidAt, isBorder, tileAt, nameAt, blockAt, tileOf, breakableAt,
-           hitBlock, place, hasNear, nearestDistance, addCooking, tentHasBed, setTentBed, tentData, cookFurnaces,
+           hitBlock, place, hasNear, nearestDistance, addCooking, tentHasBed, setTentBed, tentData, cookFurnaces, storageAt, storageEmpty,
            ringCenter, growCrops, inLight, isWater, caveAt, furnace, furnaceReady, placeGate, gateAt, gateSquares, setGate, update, draw, lights, drawHitBar, makeRandom, randomFarGrass,
            save, load, TILES, GRASS, getSeed: () => seed,
            enterCave, leaveCave, chestAt, shelfCoins, addShelfCoins, caveTitle: id => CONFIG.caves.kinds[id % CONFIG.caves.kinds.length].title,
