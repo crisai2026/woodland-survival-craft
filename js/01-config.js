@@ -83,11 +83,17 @@ const CONFIG = {
     glowShroom: { hits: 1, tool: 'axe',    drops: { glowShroom: 1 }, solid: false, natural: true, plant: true, light: 60 },
     // A trophy shelf (not in the game for now: no recipe. Kept so nothing breaks in saved worlds).
     shelf:     { hits: 2, tool: 'axe',     drops: { shelf: 1 },     solid: true,  shelf: true },
-    gold:      { hits: 6, tool: 'pickaxe', drops: { gold: 1 },      solid: true,  natural: true, minPower: 2 }   // only in the gold mine
+    gold:      { hits: 6, tool: 'pickaxe', drops: { gold: 1 },      solid: true,  natural: true, minPower: 2 },  // only in the gold mine
+    // A stone furnace outside (it can also go inside your tent). R: cook with coal.
+    furnace:   { hits: 3, tool: 'pickaxe', drops: { furnace: 1 },   solid: true },
+    // A chest to keep your things in (outside, or inside your tent). R or E: open it.
+    storage:   { hits: 2, tool: 'axe',     drops: { storage: 1 },   solid: true }
   },
   tools: {
     basicAxePower: 1,      // the axe you always carry
     chainsawCooldown: 0.15, // seconds between cuts with the chainsaw (the axe: actions.cooldown)
+    chainsawHunt: 4,       // the chainsaw on animals and bad guys: one cut = 4 axe hits (like a rifle shot)
+    chainsawHuntCooldown: 0.4, // seconds between cuts on animals and bad guys (calm, like the axe)
     basicHuntPower: 1      // hunting with the basic axe
   },
   animals: {
@@ -248,6 +254,14 @@ const CONFIG = {
     boneRange: 260,        // pixels
     keepDistance: [150, 210]   // a skeleton stays this far from you while it throws
   },
+  storage: {
+    slots: 27              // how many slots a chest has (3 rows of 9, like Minecraft)
+  },
+  // The trophy shelf on the wall of your tent: one place for each trophy you can find.
+  // For now there is one trophy: the Knight's Quest coin from the secret chest. More can be added to this list later.
+  trophyShelf: {
+    trophies: ['coin']
+  },
   furnace: {
     cookTime: 6,           // seconds for one piece of meat (one at a time, like Minecraft)
     piecesPerCoal: 4,      // one coal cooks this many pieces
@@ -291,13 +305,14 @@ const CONFIG = {
     woodAxe:      { name: 'Wooden axe',     stack: 1, tool: 'axe',     power: 1 },   // like the axe you start with
     stoneAxe:     { name: 'Stone axe',      stack: 1, tool: 'axe',     power: 2 },
     ironAxe:      { name: 'Iron axe',       stack: 1, tool: 'axe',     power: 3 },   // a tree in one hit
-    chainsaw:     { name: 'Chainsaw',       stack: 1, tool: 'axe',     power: 3, saw: true },  // fast, only for trees and wood
+    chainsaw:     { name: 'Chainsaw',       stack: 1, tool: 'axe',     power: 3, saw: true },  // fast on trees and wood; also hunts and fights (not the vampire: only garlic)
     stoneSword:   { name: 'Stone sword',    stack: 1, hunt: 2 },
     rifle:        { name: 'Hunting rifle',  stack: 1, gun: true },
     table:        { name: 'Crafting table', placeable: 'table' },
     tent:         { name: 'Tent',           placeable: 'tent' },
     bed:          { name: 'Bed',            insideTent: true },     // goes inside your tent, not outside
-    furnace:      { name: 'Stone furnace',  insideTent: true },     // goes inside your tent, cooks with coal
+    furnace:      { name: 'Stone furnace',  placeable: 'furnace' }, // outside or inside your tent, cooks with coal
+    storage:      { name: 'Chest',          placeable: 'storage' }, // keep your things in it (outside or inside your tent)
     goldenAxe:    { name: 'Golden axe',     stack: 1, tool: 'axe', power: 3 },   // a secret gift
     campfire:     { name: 'Campfire',       placeable: 'campfire' },
     torch:        { name: 'Torch',          placeable: 'torch' },
@@ -309,7 +324,7 @@ const CONFIG = {
     bone:         { name: 'Bone' },                               // a dog treat: feed it to a wolf to tame it
     gate:         { name: 'Wooden gate',    placeable: 'gate' },
     key:          { name: 'Gate key',       stack: 1 },             // hold it and press R at a closed gate: lock / unlock
-    coin:         { name: "Knight's Quest trophy coin", stack: 1 },   // the secret prize in the one hidden chest
+    coin:         { name: "Knight's Quest trophy coin", stack: 1, trophy: true },   // the secret prize in the one hidden chest: put it on the shelf in your tent
     shelf:        { name: 'Trophy shelf',   placeable: 'shelf' },   // put your coins on it (R)
     glowShroom:   { name: 'Glow mushroom',  food: 1 },              // grows in caves
     gold:         { name: 'Gold' }                                  // from the haunted gold mine
@@ -335,6 +350,7 @@ const CONFIG = {
     { makes: 'bed',          amount: 1, pattern: ['LLL', 'PPP'],        key: { L: 'wool', P: 'planks' } },
     { makes: 'campfire',     amount: 1, pattern: [' K ', 'KCK', 'WWW'], key: { K: 'sticks', C: 'coal', W: 'wood' } },
     { makes: 'furnace',      amount: 1, pattern: ['SSS', 'S S', 'SSS'], key: { S: 'stone' } },
+    { makes: 'storage',      amount: 1, pattern: ['PPP', 'P P', 'PPP'], key: { P: 'planks' } },
     { makes: 'rifle',        amount: 1, pattern: ['III', 'PPK'],        key: { I: 'iron', P: 'planks', K: 'sticks' } },
     { makes: 'ammo',         amount: 8, pattern: ['I', 'C'],            key: { I: 'iron', C: 'coal' } },
     { makes: 'slingshot',    amount: 1, pattern: ['KLK', ' K ', ' K '], key: { K: 'sticks', L: 'wool' } },
@@ -358,6 +374,13 @@ const CONFIG = {
     caveSoundEvery: [5, 12], // seconds between other cave sounds: pebbles, trickling water, bat squeaks, the rock settling
     kqMusic: 0.6,          // 0 to 1: how loud the Knight's Quest music is in the secret rooms (quiet, with echo)
     kqSlower: 1.6,         // the Knight's Quest tunes play this much slower there (ambient)
+    kqHearFrom: 12,        // squares: you start to hear a found secret room's music this far away (louder as you come closer)
+    // The secret-room music echoes like a real stone cave: quick reflections off the nearby walls (left and right),
+    // a soft far-wall echo, and a long smooth fading wash where the high sounds die first.
+    // The further away you are, the more of what you hear is echo (like in a real cave).
+    kqEcho: { early: 9, earlyMs: [14, 120], earlyMix: 0.55, wall: [0.36, 0.57], wallMix: 0.22,
+              reverb: 3.4, preDelay: 0.03, reverbMix: 1.4, dry: 0.75, dryFar: 0.25 },
+    kqSoftness: 0.15,      // seconds each secret-room note takes to swell in: smooth and round, not 8-bit
     // Music comes now and then, like in Minecraft: it plays for a while, then it is quiet.
     musicPlay: [35, 55],   // seconds a piece of music lasts
     musicRest: [45, 90]    // seconds of quiet between pieces
