@@ -145,16 +145,24 @@ const Hotbar = (() => {
         : it.gun ? `${it.name} ${Mechanics.loaded()}/${CONFIG.rifle.shots} · F: shoot · R: reload`
         : it.sling ? `${it.name} · F: shoot garlic (${Inventory.count('garlic')} garlic)`
         : s.id === 'garlic' ? 'Garlic · Q: plant it · keeps vampires away while you hold it'
+        : s.id === 'seeds' ? 'Garlic seed packet · Q: plant it on grass. It grows into garlic'
+        : /Seeds$/.test(s.id) ? `${it.name} · make a farm: put it in the middle of the crafting table and surround it with planks`
+        : it.placeable && CONFIG.blocks[it.placeable] && CONFIG.blocks[it.placeable].farm ? `${it.name} · Q: put it on grass. It grows by itself; R when it is ripe to pick it`
+        : s.id === 'wheat' ? 'Wheat · put 3 in a row at the crafting grid to make bread'
+        : s.id === 'corn' ? 'Corn · hold R to eat it, or cook it on a campfire or in a furnace (roasted corn)'
         : it.saw ? 'Chainsaw · F: cuts a tree in one go, very fast. Also hunts animals and fights bad guys'
         : it.rod ? 'Fishing rod · face the water and press F. When a fish bites, press F again'
         : s.id === 'key' ? 'Gate key · R at a closed gate: lock or unlock it'
         : s.id === 'bone' ? 'Bone · a treat for wolves: R facing a wolf to feed it'
         : s.id === 'gate' ? 'Wooden gate (2 squares wide) · Q: place it across the way you are facing'
-        : s.id === 'coin' ? "Knight's Quest trophy coin · a trophy: put it on the shelf in your tent (Q)"
+        : s.id === 'coin' ? "Knight's Quest trophy coin · a trophy: put it on the shelf in your tent or cabin (Q)"
+        : s.id === 'mooseHead' ? 'Moose head · a trophy: hang it on the trophy shelf in your tent or cabin (Q)'
         : s.id === 'shelf' ? 'Trophy shelf · Q: place it at your base, then R to put your coins on it'
-        : s.id === 'storage' ? 'Chest · Q: place it (outside or inside your tent), then R to open it'
-        : s.id === 'furnace' ? 'Stone furnace · Q: place it (outside or inside your tent), then R with raw meat to cook'
-        : s.id === 'table' ? 'Crafting table · Q: place it (outside or inside your tent)' : it.name);
+        : s.id === 'storage' ? 'Chest · Q: place it (outside, or inside your tent or cabin), then R to open it'
+        : s.id === 'furnace' ? 'Stone furnace · Q: place it (outside, or inside your tent or cabin), then R with raw meat to cook'
+        : s.id === 'table' ? 'Crafting table · Q: place it (outside, or inside your tent or cabin)'
+        : s.id === 'cabin' ? 'Wooden cabin (2 × 2 squares) · Q: place it, then face it and press R to go inside'
+        : s.id === 'tent' ? 'Tent · Q: place it, then face it and press R to go inside' : it.name);
   });
 
   Inventory.onChange(render);
