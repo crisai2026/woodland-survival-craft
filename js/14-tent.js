@@ -8,11 +8,15 @@ const Tent = (() => {
   const FURN = { x: 176, y: 280, w: 60, h: 52 };      // the place for the stone furnace
   const TABLE = { x: 488, y: 192, w: 44, h: 44 };     // the place for a crafting table
   const CHEST = { x: 240, y: 90, w: 64, h: 38 };      // the place for a chest
-  const TROPHIES = CONFIG.trophyShelf.trophies, SPOT = 26;                 // one place on the shelf for each trophy
+  const TROPHIES = CONFIG.trophyShelf.trophies, SPOT = 24;                 // one place on the shelf for each trophy
   const SHELF = { x: 410 - Math.round(TROPHIES.length * SPOT / 2) - 6, y: 82, w: TROPHIES.length * SPOT + 12, h: 18 };  // on the wall, between the little table and the bookshelf
   const DOGBED = { x: 362, y: 296, w: 56, h: 36 };    // a little bed for your dog
   const DOOR = { x1: 265, x2: 335 };                  // the opening at the bottom
   let open = false, tx = 0, ty = 0, raf = 0, last = 0, msg = '', msgT = 0;
+  let cabin = false;                                  // inside a wooden cabin (same places as the tent, log walls)
+  let old = false;                                    // an old camp: loot only (take from the chest; no sleeping, no placing)
+  const OLD_NO = "This is an old camp. You can't sleep or put your things here. Take what you need from the chest.";
+  const words = t => cabin && t ? t.replace(/\btent\b(?! or cabin)/g, 'cabin') : t;   // "tent" in the messages becomes "cabin"
   const me = { x: 300, y: 330, angle: 0, targetAngle: 0, walkTime: 0, swing: 0, jump: 0,
                eatT: 0, reloading: false, reloadT: 0 };
   const keys = new Set();
@@ -30,26 +34,43 @@ const Tent = (() => {
   // Everything inside is drawn with simple blocks, like the rest of the game. Nothing moves.
   function draw() {
     const hasBed = World.tentHasBed(tx, ty);
-    rect('#3f5a33', 0, 0, 600, 400);                                   // grass around the tent
-    rect('#cdbf9c', 30, 20, 540, 350);                                 // canvas walls
-    for (let x = 30; x <= 570; x += 90) rect('#b9ab88', x - 1, 20, 2, 350);   // wall seams
-    rect('#7a5a3c', 60, 50, 480, 300);                                 // wooden floor
-    for (let y = 80; y < 350; y += 30) rect('#6a4c32', 60, y, 480, 2);  // floor boards
-    // Entrance (bottom middle), open to the grass.
-    rect('#3f5a33', 265, 350, 70, 20); rect('#b9ab88', 245, 340, 20, 30); rect('#b9ab88', 335, 340, 20, 30);
-    // A string of little flags along the top wall.
-    rect('#6e4a2c', 70, 58, 460, 2);
-    const flagColors = ['#c95b4b', '#e0b04a', '#6f9a4e', '#5b8ec9'];
-    for (let i = 0; i < 15; i++) {
-      g.fillStyle = flagColors[i % 4];
-      g.beginPath(); g.moveTo(76 + i * 30, 60); g.lineTo(92 + i * 30, 60); g.lineTo(84 + i * 30, 72); g.fill();
+    rect('#3f5a33', 0, 0, 600, 400);                                   // grass around
+    if (cabin) {
+      rect('#8a5a34', 30, 20, 540, 350);                               // thick log walls
+      for (let y = 26; y < 370; y += 12) rect('#5e3b20', 30, y, 540, 2);
+      for (let y = 20; y < 370; y += 24) { rect('#a06a3e', 30, y + 4, 8, 6); rect('#a06a3e', 562, y + 4, 8, 6); }   // log ends at the corners
+      rect('#9a6b42', 60, 50, 480, 300);                               // light plank floor
+      for (let y = 74; y < 350; y += 24) rect('#82583a', 60, y, 480, 2);
+      for (let k = 0; k < 11; k++) rect('#82583a', 90 + ((k * 137) % 420), 50 + 24 * (k % 12), 2, 24);
+      // Two windows in the top wall, with a calm sky.
+      [[120, 24], [420, 24]].forEach(([x, y]) => {
+        rect('#5e3b20', x - 3, y - 2, 66, 26); rect('#a8c8de', x, y, 60, 22);
+        rect('#5e3b20', x + 29, y, 2, 22); rect('#5e3b20', x, y + 10, 60, 2);
+      });
+      // The door (bottom middle).
+      rect('#3f5a33', 265, 350, 70, 20); rect('#5e3b20', 255, 340, 10, 30); rect('#5e3b20', 335, 340, 10, 30);
+    } else {
+      rect('#cdbf9c', 30, 20, 540, 350);                               // canvas walls
+      for (let x = 30; x <= 570; x += 90) rect('#b9ab88', x - 1, 20, 2, 350);   // wall seams
+      rect('#7a5a3c', 60, 50, 480, 300);                               // wooden floor
+      for (let y = 80; y < 350; y += 30) rect('#6a4c32', 60, y, 480, 2);  // floor boards
+      // Entrance (bottom middle), open to the grass.
+      rect('#3f5a33', 265, 350, 70, 20); rect('#b9ab88', 245, 340, 20, 30); rect('#b9ab88', 335, 340, 20, 30);
+      // A string of little flags along the top wall.
+      rect('#6e4a2c', 70, 58, 460, 2);
+      const flagColors = ['#c95b4b', '#e0b04a', '#6f9a4e', '#5b8ec9'];
+      for (let i = 0; i < 15; i++) {
+        g.fillStyle = flagColors[i % 4];
+        g.beginPath(); g.moveTo(76 + i * 30, 60); g.lineTo(92 + i * 30, 60); g.lineTo(84 + i * 30, 72); g.fill();
+      }
     }
     // Warm, steady lantern light (no flicker).
     g.fillStyle = 'rgba(242, 190, 90, 0.16)';
     g.beginPath(); g.arc(212, 104, 90, 0, Math.PI * 2); g.fill();
-    // Big rug in the middle.
-    rect('#a8463c', 200, 150, 200, 130); rect('#e0b04a', 208, 158, 184, 114); rect('#a8463c', 214, 164, 172, 102);
-    for (let i = 0; i < 4; i++) rect('#e0b04a', 250 + i * 30, 207, 12, 12);
+    // Big rug in the middle (green and cream in the cabin).
+    const rugA = cabin ? '#4f7a4a' : '#a8463c', rugB = cabin ? '#e9dfc4' : '#e0b04a';
+    rect(rugA, 200, 150, 200, 130); rect(rugB, 208, 158, 184, 114); rect(rugA, 214, 164, 172, 102);
+    for (let i = 0; i < 4; i++) rect(rugB, 250 + i * 30, 207, 12, 12);
     // The stone furnace (or the empty place for it).
     const td = World.tentData(tx, ty);
     if (td.furnace) {
@@ -66,7 +87,7 @@ const Tent = (() => {
       if (burning) { rect('#e8893a', FURN.x + 21, FURN.y + 36, 18, 10); rect('#f2c14e', FURN.x + 26, FURN.y + 39, 8, 6); }
       for (let i = 0; i < Math.min(World.furnaceReady(f), 4); i++) rect('#8a4a2a', FURN.x + 4 + i * 14, FURN.y + 6, 10, 8);  // cooked food on top
       if (burning) World.drawHitBar(g, FURN.x + 30, FURN.y - 10, f.cooking[0][0] / CONFIG.furnace.cookTime);
-    } else {
+    } else if (!old) {
       g.save(); g.setLineDash([6, 5]); g.strokeStyle = '#f1ede0'; g.lineWidth = 2;
       g.strokeRect(FURN.x, FURN.y, FURN.w, FURN.h); g.restore();
       g.fillStyle = '#f1ede0'; g.font = '600 12px system-ui, sans-serif'; g.textAlign = 'center';
@@ -77,12 +98,12 @@ const Tent = (() => {
       rect('#4a3424', TABLE.x + 3, TABLE.y + 3, TABLE.w, TABLE.h); rect('#6e4a2c', TABLE.x, TABLE.y, TABLE.w, TABLE.h);
       rect('#b88b56', TABLE.x + 4, TABLE.y + 4, TABLE.w - 8, TABLE.h - 8);
       for (let k = 1; k < 3; k++) { rect('#8a6437', TABLE.x + 4 + k * 12, TABLE.y + 4, 2, TABLE.h - 8); rect('#8a6437', TABLE.x + 4, TABLE.y + 4 + k * 12, TABLE.w - 8, 2); }
-    } else dashed(TABLE, 'Table');                      // the empty place, always shown (like the bed and the furnace)
+    } else if (!old) dashed(TABLE, 'Table');                      // the empty place, always shown (like the bed and the furnace)
     if (td.chest) {
       rect('#4a3424', CHEST.x + 3, CHEST.y + 3, CHEST.w, CHEST.h); rect('#6e4a2c', CHEST.x, CHEST.y, CHEST.w, CHEST.h);
       rect('#b88b56', CHEST.x + 3, CHEST.y + 3, CHEST.w - 6, 12); rect('#b88b56', CHEST.x + 3, CHEST.y + 18, CHEST.w - 6, CHEST.h - 21);
       rect('#9a9a95', CHEST.x + CHEST.w / 2 - 4, CHEST.y + 12, 8, 9); rect('#5c5c58', CHEST.x + CHEST.w / 2 - 1, CHEST.y + 15, 2, 4);
-    } else dashed(CHEST, 'Chest');
+    } else if (!old) dashed(CHEST, 'Chest');
     // The trophy shelf on the wall: a wooden board on two brackets. Each trophy has its own place.
     const tr = td.trophies || {};
     rect('#4a3424', SHELF.x + 2, SHELF.y + 12, SHELF.w, 6);                                   // its shadow on the wall
@@ -90,13 +111,22 @@ const Tent = (() => {
     rect('#b88b56', SHELF.x, SHELF.y + 10, SHELF.w, 6); rect('#8a6437', SHELF.x, SHELF.y + 15, SHELF.w, 2);          // the board
     TROPHIES.forEach((id, k) => {
       const cx = SHELF.x + 6 + k * SPOT + SPOT / 2, cy = SHELF.y + 1;
-      if (tr[id]) {                                                                           // the coin, standing up, gold and still
+      if (tr[id] && id === 'mooseHead') {                                                     // the moose head on a light wooden plaque
+        rect('#6e4a2c', cx - 8, cy - 7, 16, 17); rect('#d4a86a', cx - 7, cy - 6, 14, 15);     // plaque
+        rect('#e3d2a8', cx - 14, cy - 10, 9, 4); rect('#e3d2a8', cx + 5, cy - 10, 9, 4);      // wide flat antlers
+        rect('#e3d2a8', cx - 14, cy - 14, 2, 4); rect('#e3d2a8', cx - 10, cy - 13, 2, 3);
+        rect('#e3d2a8', cx + 12, cy - 14, 2, 4); rect('#e3d2a8', cx + 8, cy - 13, 2, 3);
+        rect('#7a5236', cx - 5, cy - 8, 10, 9); rect('#7a5236', cx - 4, cy, 8, 8);           // head and long nose
+        rect('#4a3221', cx - 3, cy + 5, 6, 3);                                                // dark nose
+        rect('#1f1712', cx - 3, cy - 5, 2, 2); rect('#1f1712', cx + 1, cy - 5, 2, 2);         // calm eyes
+        rect('#7a5236', cx - 7, cy - 7, 2, 3); rect('#7a5236', cx + 5, cy - 7, 2, 3);         // ears
+      } else if (tr[id]) {                                                                    // the coin, standing up, gold and still
         g.fillStyle = 'rgba(250, 204, 21, 0.18)'; g.beginPath(); g.arc(cx, cy, 15, 0, Math.PI * 2); g.fill();   // a soft, steady shine
         g.fillStyle = '#a16207'; g.beginPath(); g.arc(cx, cy, 9, 0, Math.PI * 2); g.fill();
         g.fillStyle = '#facc15'; g.beginPath(); g.arc(cx, cy, 7, 0, Math.PI * 2); g.fill();
         rect('#fde68a', cx - 4, cy - 4, 3, 3);                                               // a little gleam
         rect('#6e4a2c', cx - 4, cy + 8, 8, 2);                                               // a little wooden stand
-      } else {                                                                                // an empty place
+      } else if (!old) {                                                                      // an empty place
         g.save(); g.setLineDash([3, 3]); g.strokeStyle = 'rgba(241, 237, 224, 0.6)'; g.lineWidth = 1.5;
         g.beginPath(); g.arc(cx, cy, 8, 0, Math.PI * 2); g.stroke(); g.restore();
       }
@@ -196,9 +226,14 @@ const Tent = (() => {
     if (free) { me.x = free[0]; me.y = free[1]; }
   }
 
-  function say(t) { msg = t; msgT = 3; }
+  function say(t) { msg = words(t); msgT = 3; }
   function hint() {
     const td = World.tentData(tx, ty), held = Inventory.selectedItem();
+    if (old) {
+      if (nearChest()) return 'The old chest. R: open it and take what you need.';
+      if (nearBed()) return 'An old, worn bed. You can only sleep in a tent or cabin you made.';
+      return 'An old camp. Take what you need from the chest (top, next to the lantern). Walk out of the door to leave.';
+    }
     if (nearTable() && (td.table || (held && held.id === 'table')))
       return td.table ? 'Your crafting table. R: craft (the big 3 × 3 grid) · F: take the table.' : 'Q: put your crafting table here.';
     if (nearChest() && (td.chest || (held && held.id === 'storage')))
@@ -208,7 +243,7 @@ const Tent = (() => {
       if (held && CONFIG.items[held.id].trophy && !tr[held.id]) return 'Your trophy shelf. Q: put your trophy here.';
       const on = TROPHIES.filter(id => tr[id]).length;
       if (on) return `Your trophy shelf: ${on} of ${TROPHIES.length} trophies. F: take a trophy back.`;
-      return 'Your trophy shelf. Find trophies in the caves and put them here (Q).';
+      return 'Your trophy shelf. Find trophies (in the caves, and from a moose) and put them here (Q).';
     }
     if (held && CONFIG.items[held.id].trophy && !tr[held.id]) return 'Your trophy shelf is on the wall at the top, between the little table and the bookshelf. Walk there and press Q.';
     if (held && held.id === 'table' && !td.table) return 'Your crafting table goes on the right, by the cushions (dashed square). Walk there and press Q.';
@@ -291,6 +326,7 @@ const Tent = (() => {
     return true;
   }
   function placeQ() {
+    if (old) return say(OLD_NO);
     const s = Inventory.selectedItem();
     if (s && CONFIG.items[s.id].trophy) return placeTrophy(s.id);
     if (s && (s.id === 'table' || s.id === 'storage')) return placeThing(s.id);
@@ -344,12 +380,17 @@ const Tent = (() => {
   }
   function useR() {
     const td = World.tentData(tx, ty);
+    if (old) {
+      if (nearChest() && td.chest) { keys.clear(); return InventoryScreen.openChest(td.chest, true); }
+      return say(nearBed() ? 'This old bed is too worn to sleep in. Sleep in a tent or cabin you made.' : OLD_NO);
+    }
     if (nearTable() && td.table) { keys.clear(); return InventoryScreen.openTable(); }
     if (nearChest() && td.chest) { keys.clear(); return InventoryScreen.openChest(td.chest); }
     if (nearFurnace() && td.furnace) return useFurnace();
     sleep();
   }
   function useF() {
+    if (old) return say(OLD_NO);
     if (nearShelf() && takeTrophy()) return;
     if (nearTable() && takeThing(true)) return;
     if (nearChest() && takeThing(false)) return;
@@ -390,7 +431,7 @@ const Tent = (() => {
     if (me.y > 362) { close(); return; }                          // walked out of the door
     if (InventoryScreen.isOpen()) keys.clear();
     msgT = Math.max(0, msgT - dt);
-    statusEl.textContent = msgT > 0 ? msg : hint();
+    statusEl.textContent = msgT > 0 ? msg : words(hint());
     World.cookFurnaces(dt);                      // the furnace keeps cooking while you are inside
   }
 
@@ -406,7 +447,21 @@ const Tent = (() => {
 
   function openTent(x, y) {
     tx = x; ty = y; open = true;
+    cabin = World.nameAt(x, y) === 'cabin';
+    const td = World.tentData(x, y);
+    old = !!td.old;
+    document.getElementById('tentKeys').textContent = old
+      ? 'W A S D: walk · R at the chest: open it and take what you need (an old camp: no sleeping, no placing)'
+      : 'W A S D: walk · Q: place your bed, furnace, crafting table or chest · R: sleep, cook, craft or open · F: take them back';
+    document.getElementById('tentTitle').textContent = (td.old ? 'An old ' : 'Your ') + (cabin ? 'cabin' : 'tent');
+    document.getElementById('tentLeave').textContent = cabin ? 'Leave the cabin' : 'Leave the tent';
     me.x = 300; me.y = 330; me.angle = me.targetAngle = 0; msgT = 0;   // just inside the door, facing in
+    if (old && !td.seen) {                            // the first time inside an old home
+      td.seen = true;
+      say('Nobody lives here any more. Take what you need from the chest (top, next to the lantern).');
+      msgT = 6;
+      Mechanics.count('found', 'oldHome');
+    }
     keys.clear();
     Mechanics.clearKeys();
     screen.classList.add('open');
