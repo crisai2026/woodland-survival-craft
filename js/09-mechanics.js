@@ -144,7 +144,7 @@ const Mechanics = (() => {
   const survival = { health: S.maxHealth, hunger: S.maxHunger, hungerT: 0, starveT: 0, healT: 0 };
   let home = null;             // where you wake up (last bed or tent you slept in)
   let stats = freshStats();
-  function freshStats() { return { broke: {}, crafted: {}, placed: {}, ate: 0, slept: 0, cooked: 0 }; }
+  function freshStats() { return { broke: {}, crafted: {}, placed: {}, found: {}, harvested: {}, ate: 0, slept: 0, cooked: 0 }; }
   function cooked() { stats.cooked = (stats.cooked || 0) + 1; }
   function count(group, id) { stats[group][id] = (stats[group][id] || 0) + 1; }
 
@@ -263,8 +263,8 @@ const Mechanics = (() => {
     const power = toolPower(target.block.tool);
     if (power === 0) { Hotbar.say('You need a pickaxe for this. Make one at a crafting table.'); return; }
     if (power < (target.block.minPower || 0)) { Hotbar.say(`You need a stone pickaxe for ${target.name === 'gold' ? 'gold' : 'iron'}.`); return; }
-    if ((target.name === 'storage' || target.name === 'tent') && !World.storageEmpty(target.tx, target.ty)) {
-      Hotbar.say(target.name === 'tent' ? 'Take everything out of the chest in your tent first.' : 'Take everything out of the chest first.');
+    if ((target.name === 'storage' || target.name === 'tent' || target.name === 'cabin') && !World.storageEmpty(target.tx, target.ty)) {
+      Hotbar.say(target.name !== 'storage' ? `Take everything out of the chest in your ${target.name} first.` : 'Take everything out of the chest first.');
       player.cooldown = 1; return;
     }
     if (saw && target.block.tool !== 'axe') { Hotbar.say('The chainsaw can\'t cut stone. Use a pickaxe.'); player.cooldown = 1; return; }
@@ -286,13 +286,15 @@ const Mechanics = (() => {
     if (!s) return 'Your hand is empty. Choose an item with a number key.';
     const item = CONFIG.items[s.id];
     if (item.insideTent) {
-      Screens.notice(`You can't place your ${item.name.toLowerCase()} outside of your tent. Face your tent and press R to go inside, then place it there.`);
+      Screens.notice(`You can't place your ${item.name.toLowerCase()} outside. Face your tent or cabin and press R to go inside, then place it there.`);
       return null;
     }
     if (!item.placeable) return `${item.name} can't be placed.`;
-    if (World.isUnder() && item.placeable === 'tent') return 'Put your tent outside, in the forest.';
+    if (World.isUnder() && (item.placeable === 'tent' || item.placeable === 'cabin')) return `Put your ${item.placeable} outside, in the forest.`;
     if (World.isUnder() && item.placeable === 'garlic0') return 'Garlic needs sunlight. Plant it outside.';
+    if (World.isUnder() && CONFIG.blocks[item.placeable] && CONFIG.blocks[item.placeable].farm) return 'Farms need sunlight. Put it outside.';
     if (item.placeable === 'gate') return placeGate();
+    if (item.placeable === 'cabin') return placeCabin();
     const ts = CONFIG.world.tileSize, h = P.hitbox / 2;
     for (const steps of [1, 2]) {                // if you are too close, try one square further
       const { tx, ty } = frontTile(steps);
@@ -307,6 +309,30 @@ const Mechanics = (() => {
       break;
     }
     return 'No space here. Face open grass.';
+  }
+
+  // Q with a cabin: it is 2 x 2 squares, in front of you (the square in front is its nearest corner or side).
+  function placeCabin() {
+    const ts = CONFIG.world.tileSize, h = P.hitbox / 2;
+    const a = player.targetAngle - Math.PI / 2, dx = Math.cos(a), dy = Math.sin(a), sideways = Math.abs(dx) >= Math.abs(dy);
+    const free = (tx, ty) => {
+      const cx = (tx + 0.5) * ts, cy = (ty + 0.5) * ts;
+      return !(Math.abs(player.x - cx) < h + ts / 2 && Math.abs(player.y - cy) < h + ts / 2) && !Animals.blocksAt(cx, cy, ts / 2, null);
+    };
+    for (const steps of [1, 2]) {
+      const t = frontTile(steps);
+      const x0 = sideways ? (dx > 0 ? t.tx : t.tx - 1) : null, y0 = sideways ? null : (dy > 0 ? t.ty : t.ty - 1);
+      for (const shift of [0, -1]) {
+        const tx = sideways ? x0 : t.tx + shift, ty = sideways ? t.ty + shift : y0;
+        if (![[0, 0], [1, 0], [0, 1], [1, 1]].every(([a2, b2]) => free(tx + a2, ty + b2))) continue;
+        if (World.placeCabin(tx, ty)) {
+          Inventory.takeOne(Inventory.selected());
+          count('placed', 'cabin');
+          return null;
+        }
+      }
+    }
+    return 'No space here. A cabin needs 2 x 2 squares of open grass in front of you.';
   }
 
   // Q with a gate: it is 2 squares wide and goes across the way you are facing.
@@ -345,7 +371,7 @@ const Mechanics = (() => {
     if (rc && Math.hypot(player.x - rc.x, player.y - rc.y) < 30) return { msg: Easter.activate(), used: true };
     const gateSpot = thing('gate');
     if (gateSpot) return { msg: useGate(gateSpot.tx, gateSpot.ty), used: true };
-    const tent = thing('tent');
+    const tent = spots.map(t => World.mainOf(t.tx, t.ty)).find(t => ['tent', 'cabin'].includes(World.nameAt(t.tx, t.ty)));
     if (tent) { Tent.open(tent.tx, tent.ty); return { msg: null, used: true }; }
     const cave = thing('cave');
     if (cave) { Under.enter(cave.tx, cave.ty); return { msg: null, used: true }; }
@@ -356,6 +382,8 @@ const Mechanics = (() => {
     if (shelf) return { msg: Under.useShelf(shelf.tx, shelf.ty), used: true };
     const box = thing('storage');                // your chest: open it
     if (box) { InventoryScreen.openChest(World.storageAt(box.tx, box.ty)); return { msg: null, used: true }; }
+    const farm = spots.find(t => { const b = World.blockAt(t.tx, t.ty); return b && b.farm; });
+    if (farm) return { msg: useFarm(farm.tx, farm.ty), used: true };
     const furn = thing('furnace');               // a furnace outside: cook with coal, or take the cooked food
     if (furn) return { msg: Tent.furnaceUse(World.tentData(furn.tx, furn.ty).furnace), used: true };
     // Feed a wolf (raw or cooked meat). After a few times it becomes your dog.
@@ -391,6 +419,17 @@ const Mechanics = (() => {
     }
     return { msg: World.isUnder() ? 'R: hold food to eat it. Face the light at the way out to go back outside.'
                                   : 'R: hold food to eat it, face a campfire to cook, or face your tent to go inside.', used: true };
+  }
+
+  // R at a farm: pick it when it is ripe (it grows again by itself).
+  function useFarm(tx, ty) {
+    const kind = World.blockAt(tx, ty).farm, K = CONFIG.farms.kinds[kind], stage = World.farmStage(tx, ty);
+    if (stage < 3) return `Your ${kind} farm is growing (${['seeds', 'sprouts', 'green'][stage]}). Come back later.`;
+    const got = World.harvest(tx, ty), ts = CONFIG.world.tileSize;
+    const left = Inventory.add(got.item, got.n);
+    if (left) Drops.spawn(got.item, left, (tx + 0.5) * ts, (ty + 0.5) * ts);
+    count('harvested', kind);
+    return `You picked ${got.n} ${K.words}. The farm will grow again.`;
   }
 
   // R at a gate: open or close it. Holding the gate key: lock or unlock it (only when it is closed).
