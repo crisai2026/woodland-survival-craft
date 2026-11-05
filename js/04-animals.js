@@ -365,7 +365,16 @@ const Animals = (() => {
     if (a.hits < kindOf(a).hits) return null;
     a.dying = true;
     a.fade = CONFIG.actions.fadeTime;
-    return kindOf(a).drops;
+    return withRareDrop(kindOf(a));
+  }
+  // A rare drop (the moose head): a small chance, and only once per world.
+  function withRareDrop(kind) {
+    const rare = kind.rareDrop, st = Mechanics.stats();
+    if (!rare || st.rare && st.rare[rare.item] || rand() >= rare.chance) return kind.drops;
+    st.rare = st.rare || {}; st.rare[rare.item] = true;
+    Sound.chime();
+    Hotbar.say(`A rare find: a ${CONFIG.items[rare.item].name.toLowerCase()}! Hang it on the trophy shelf in your tent.`);
+    return Object.assign({}, kind.drops, { [rare.item]: 1 });
   }
 
   // Only garlic hurts the vampire. Each hit makes it flinch and step back.
