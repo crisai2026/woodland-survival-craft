@@ -6,6 +6,7 @@ const InventoryScreen = (() => {
   let open = false, gridSize = 2, grid = [], cursor = null, bookOpen = true, drag = null, message = '';
   let near = { campfire: false };
   let chest = null;                                  // the slots of the chest you opened (or null)
+  let takeOnly = false, cursorFromChest = false;     // an old camp's chest: you can take things out, not put things in
 
   const arrFor = area => area === 'inv' ? Inventory.slots : area === 'chest' ? chest : grid;
   const max = id => Inventory.maxStack(id);
@@ -26,9 +27,11 @@ const InventoryScreen = (() => {
     const title = gridSize === 3 ? 'Crafting table' : 'Crafting';
     if (chest) {                                     // a chest: its slots on top, your things below
       panel.innerHTML = `
-      <div class="label">Chest</div>
+      <div class="label">${takeOnly ? 'Old chest' : 'Chest'}</div>
       <div class="slots" style="grid-template-columns: repeat(9, var(--slot))">${chest.map((s, i) => slot('chest', i, s)).join('')}</div>
-      <div class="note">Click or drag to move things · Shift + click: move a whole stack in or out</div>
+      <div class="note">${takeOnly ? 'Take what you need: click or drag things into your inventory · Shift + click: take a whole stack'
+                                   : 'Click or drag to move things · Shift + click: move a whole stack in or out'}</div>
+      ${takeOnly && message ? `<div class="note">${message}</div>` : ''}
       <div class="label">Inventory</div>
       <div class="slots">${backpack}</div>
       <div class="slots hotrow">${hotbar}</div>
@@ -88,25 +91,29 @@ const InventoryScreen = (() => {
   function pickUp(area, i, half) {
     const arr = arrFor(area), s = arr[i];
     if (!s) return;
+    cursorFromChest = area === 'chest'; message = '';
     if (!half) { cursor = s; arr[i] = null; return; }
     const n = Math.ceil(s.n / 2);
     cursor = { id: s.id, n }; s.n -= n;
     if (s.n <= 0) arr[i] = null;
   }
 
+  const noPutting = area => takeOnly && area === 'chest' && !cursorFromChest;   // old chest: only its own things go back
   function putDown(area, i, one) {
     const arr = arrFor(area), s = arr[i];
     if (!cursor) return;
+    if (noPutting(area)) { message = 'This old chest is only for taking things out.'; return; }
     if (one) {
       if (!s) { arr[i] = { id: cursor.id, n: 1 }; cursor.n--; }
       else if (s.id === cursor.id && s.n < max(s.id)) { s.n++; cursor.n--; }
     } else if (!s) { arr[i] = cursor; cursor = null; return; }
     else if (s.id === cursor.id) { const m = Math.min(cursor.n, max(s.id) - s.n); s.n += m; cursor.n -= m; }
-    else { arr[i] = cursor; cursor = s; return; }                                     // swap
+    else { arr[i] = cursor; cursor = s; cursorFromChest = area === 'chest'; return; }   // swap
     if (cursor.n <= 0) cursor = null;
   }
 
   function fits(area, i) {
+    if (noPutting(area)) return false;
     const s = arrFor(area)[i];
     return !s || (s.id === cursor.id && s.n < max(s.id));
   }
@@ -137,6 +144,7 @@ const InventoryScreen = (() => {
   function chestMove(area, i) {
     const from = arrFor(area), s = from[i];
     if (!s) return;
+    if (takeOnly && area === 'inv') { message = 'This old chest is only for taking things out.'; return; }
     from[i] = null;
     const left = area === 'chest' ? Inventory.addTo(s.id, s.n, 0, Inventory.slots.length) : addToArr(chest, s.id, s.n);
     if (left) from[i] = { id: s.id, n: left };
@@ -312,6 +320,7 @@ const InventoryScreen = (() => {
     open = true;
     Mechanics.clearKeys();
     chest = opts.chest || null;
+    takeOnly = !!opts.takeOnly; cursorFromChest = false;
     gridSize = opts.table || Mechanics.nearTable() ? 3 : 2;
     near = { campfire: Mechanics.nearCampfire() };
     grid = new Array(gridSize * gridSize).fill(null);
@@ -346,5 +355,5 @@ const InventoryScreen = (() => {
     else if (e.code === 'Escape' && open) { e.preventDefault(); e.invClosed = true; close(); }
   });
 
-  return { isOpen: () => open, close, openChest: slots => show({ chest: slots }), openTable: () => show({ table: true }) };
+  return { isOpen: () => open, close, openChest: (slots, takeOnly) => show({ chest: slots, takeOnly }), openTable: () => show({ table: true }) };
 })();

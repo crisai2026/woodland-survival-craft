@@ -113,6 +113,22 @@
   .dialog.open { display: block; }
   .dialog { z-index: 20; background: rgba(28, 34, 26, 0.97); border: 2px solid #5a6650; }
   #tentScreen { z-index: 15; }
+
+  /* ---------- Main menu (when the game opens, and Esc during the game) ---------- */
+  #mainMenu { position: fixed; inset: 0; z-index: 30; display: none; flex-direction: column; align-items: center;
+              background: #2b3a4a; padding-top: 4vh; box-sizing: border-box; overflow-y: auto; }
+  #menuBg { position: fixed; inset: 0; width: 100vw; height: 100vh; image-rendering: pixelated; z-index: -1; }
+  #mainMenu.open { display: flex; }
+  #menuLogo { width: min(560px, 92vw); height: auto; image-rendering: pixelated; }
+  .menuPanel { margin-top: 10px; padding: 22px 24px 16px; background: rgba(2, 6, 23, 0.68); border-radius: 6px;
+               display: flex; flex-direction: column; align-items: center; gap: 14px; }
+  .menuBtn { width: 340px; max-width: 80vw; height: 52px; font: bold 20px system-ui, sans-serif; color: #f8fafc;
+             background: rgba(30, 41, 59, 0.9); border: 2px solid #475569; cursor: pointer; border-radius: 0; }
+  .menuBtn.active { background: #1d4ed8; border: 3px solid #fbbf24; }
+  .menuBtn:disabled { background: rgba(30, 41, 59, 0.5); color: #64748b; cursor: default; }
+  #menuNote { min-height: 2.6em; text-align: center; font: 14px system-ui, sans-serif; color: #94a3b8; line-height: 1.5; }
+  #menuNote .warn { color: #fca5a5; font-weight: 700; font-size: 16px; }
+  body.menuOpen #help, body.menuOpen #hotbarWrap, body.menuOpen #goal { display: none; }
 </style>
 </head>
 <body>
@@ -125,13 +141,14 @@
     F: chop, mine, hunt, break<br>
     Space: jump<br>
     1 – 0: choose a hotbar slot<br>
-    Q: place (table, tent, campfire, torch, wall, gate, furnace, chest, garlic)<br>
+    Q: place (table, tent, cabin, farm, campfire, torch, wall, gate, furnace, chest, garlic)<br>
     R facing a chest (or E): open it and put your things away<br>
     R facing a furnace with raw meat or fish: cook it (uses coal)<br>
     R facing a gate: open / close it. With the gate key: lock / unlock<br>
     R (hold) or right mouse button: eat food<br>
     R facing a campfire with raw meat or fish: cook it<br>
-    R facing your tent: go inside and walk around (place your bed, sleep)<br>
+    R facing your tent or cabin: go inside and walk around (place your bed, sleep)<br>
+    R facing a ripe farm: pick the wheat, carrots or corn<br>
     With the rifle: F shoots, R reloads<br>
     Axes: wooden, stone, iron (one hit), then the chainsaw (fast on trees; it also hunts and fights)<br>
     R facing a cave opening (in the rocks): go inside. R at the light: back out<br>
@@ -141,6 +158,7 @@
     With the fishing rod: face water, F to cast. When a fish bites, F again<br>
     R facing a wolf with meat or a bone: tame it (3 times and it becomes your dog)<br>
     E: inventory and crafting<br>
+    Esc: main menu (the game waits)<br>
     Wolves and bears attack. A moose fights back if you hit it.<br>
     At night zombies and skeletons come out. On full-moon nights, a werewolf.<br>
     Some nights a vampire comes out. Only garlic hurts it.<br>
@@ -162,17 +180,25 @@
 <div id="fade"></div>
 <div id="tentScreen">
   <div class="tentPanel">
-    <h2>Your tent</h2>
+    <h2 id="tentTitle">Your tent</h2>
     <canvas id="tentCanvas" width="600" height="400"></canvas>
     <div id="tentStatus"></div>
     <div class="tentButtons"><button id="tentLeave">Leave the tent</button></div>
-    <div class="tentNote">W A S D: walk · Q: place your bed, furnace, crafting table or chest · R: sleep, cook, craft or open · F: take them back<br>
+    <div class="tentNote"><span id="tentKeys">W A S D: walk · Q: place your bed, furnace, crafting table or chest · R: sleep, cook, craft or open · F: take them back</span><br>
       Walk out of the door (or press Esc) to leave. The world waits while you are inside.</div>
   </div>
 </div>
 <div id="notice" class="dialog darkBox">
   <p id="noticeText"></p>
   <button id="noticeOk">OK</button>
+</div>
+<div id="mainMenu">
+  <canvas id="menuBg"></canvas>
+  <canvas id="menuLogo" width="560" height="210"></canvas>
+  <div class="menuPanel">
+    <div id="menuButtons"></div>
+    <div id="menuNote"></div>
+  </div>
 </div>
 <div id="faint" class="dialog darkBox">
   <p id="faintText">You fainted from hunger.</p>
