@@ -32,29 +32,30 @@ const Menu = (() => {
 
   // The background: the lumberjack stands on a grassy hill on the left and looks out over the forest
   // (a calm evening sky, mountains, rows of pine trees and a lake). Pixel art like the game. Nothing moves.
-  const LUMBERJACK = [            // facing right, his axe stuck in a tree stump next to him
-    '....kkkk......',
-    '...kkkkkk.....',
-    '...hhsssss....',
-    '...hsssses....',
-    '...hssssss....',
-    '...hhhhhs.....',
-    '....hhhh......',
-    '...SSDSSS.....',
-    '..SSSDSSSSssa.',
+  const LUMBERJACK = [            // facing right, his axe stuck in a tree stump next to him. Dressed like Felix:
+    '....SSSS......',             // a red hoodie with the hood up (white drawstrings, a front pocket),
+    '...SSSSSS.....',             // shorts, and white sneakers with a green line
+    '...Shsssss....',
+    '...Ssssses....',
+    '...Sssssss....',
+    '...Shhhhs.....',
+    '...SShhh......',
+    '...SSwSwS.....',
+    '..SSSwSwSSssa.',
+    '..SSSSSSS...a.',
     '..SDDDDDS...a.',
-    '..SSSDSSS...a.',
-    '..SSSDSSS...a.',
+    '..SDSSSDS...a.',
     '..DDDDDDD...a.',
     '...jjjjj....a.',
-    '...jjjjj....a.',
-    '...jj.jj...mam',
-    '...jj.jj...mmm',
-    '...JJ.JJ..TTTT',
-    '..bbb.bbb.tttt',
+    '...jj.jj....a.',
+    '...ss.ss...mam',
+    '...ss.ss...mmm',
+    '...ww.ww..TTTT',
+    '..wgw.wgw.tttt',
     '..........tttt'];
   const LJ_COLORS = { k: '#7f2e28', h: '#4b3526', s: '#e2b78d', e: '#2b2b2b', S: '#b5463b', D: '#7f2e28',
-                      j: '#3d5778', J: '#2e4460', b: '#5a3e2a', a: '#7a5230', m: '#a8adb0', T: '#c9a27a', t: '#6e4a2c' };
+                      j: '#3d5778', J: '#2e4460', b: '#5a3e2a', a: '#7a5230', m: '#a8adb0', T: '#c9a27a', t: '#6e4a2c',
+                      w: '#f4f4f0', g: '#3fa34d' };
   function drawBackground() {
     const c = document.getElementById('menuBg');
     const px = Math.max(3, Math.round(window.innerHeight / 210));          // one blocky pixel = px screen pixels
