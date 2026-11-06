@@ -33,14 +33,14 @@ const Menu = (() => {
   // The background: the lumberjack stands on a grassy hill on the left and looks out over the forest
   // (a calm evening sky, mountains, rows of pine trees and a lake). Pixel art like the game. Nothing moves.
   const LUMBERJACK = [            // facing right, his axe stuck in a tree stump next to him. Dressed like Felix:
-    '....SSSS......',             // a red hoodie with the hood up (white drawstrings, a front pocket),
-    '...SSSSSS.....',             // shorts, and white sneakers with a green line
-    '...Shsssss....',
-    '...Ssssses....',
-    '...Sssssss....',
-    '...Shhhhs.....',
-    '...SShhh......',
-    '...SSwSwS.....',
+    '....hhhh......',             // a red hoodie with the hood down (white drawstrings, a front pocket),
+    '...hhhhhh.....',             // shorts, and white sneakers with a green line
+    '...hhsssss....',
+    '...hsssses....',
+    '...hssssss....',
+    '...hhhhhs.....',
+    '..DSShhh......',
+    '..DSSwSwS.....',
     '..SSSwSwSSssa.',
     '..SSSSSSS...a.',
     '..SDDDDDS...a.',

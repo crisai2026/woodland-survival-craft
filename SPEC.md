@@ -41,7 +41,7 @@ No story for now.
   pixel pine trees. Nothing moves.
 - Background: a still pixel picture. The lumberjack stands on a green hill on the left, his axe in a stump,
   looking out over the forest: rows of pine trees, a lake, blue hills and a soft evening sun. Nothing moves.
-  A little joke for Felix: the lumberjack is dressed like him, in a red hoodie with the hood up, shorts,
+  A little joke for Felix: the lumberjack is dressed like him, in a red hoodie with the hood down, shorts,
   and white sneakers with a green line.
 - Big buttons like in Knight's Quest (dark blue; the chosen one is bright blue with a gold border):
   **Continue** (your saved world; grey if there is no saved world yet) and **New game**.
@@ -569,3 +569,4 @@ they stay on the ground.
 - Step 32 — Farms: wheat, carrot and corn seed packets in the old camps; craft a farm (seed packet in the middle, planks around),
   it grows by itself, R to pick. Bread from wheat, roasted corn.
 - Step 33 — The lumberjack on the main menu dresses like Felix: red hoodie, shorts, white sneakers with a green line.
+- Fix — Felix always wears his hoodie with the hood down: now the menu lumberjack does too.
