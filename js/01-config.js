@@ -87,7 +87,17 @@ const CONFIG = {
     // A stone furnace outside (it can also go inside your tent). R: cook with coal.
     furnace:   { hits: 3, tool: 'pickaxe', drops: { furnace: 1 },   solid: true },
     // A chest to keep your things in (outside, or inside your tent). R or E: open it.
-    storage:   { hits: 2, tool: 'axe',     drops: { storage: 1 },   solid: true }
+    storage:   { hits: 2, tool: 'axe',     drops: { storage: 1 },   solid: true },
+    // A wooden cabin: a second kind of home, like the tent. R: go inside. The window glows softly at night.
+    cabin:     { hits: 4, tool: 'axe',     drops: { cabin: 1 },     solid: true,  enter: true, light: 70 },
+    // A cabin is 2 x 2 squares. 'cabin' is the top-left square (it keeps what is inside); these are the other three.
+    cabinR:    { hits: 4, tool: 'axe',     drops: {},               solid: true,  cabinPart: [-1, 0] },
+    cabinB:    { hits: 4, tool: 'axe',     drops: {},               solid: true,  cabinPart: [0, -1] },
+    cabinBR:   { hits: 4, tool: 'axe',     drops: {},               solid: true,  cabinPart: [-1, -1] },
+    // Farms: 1 square of soil in a plank frame. They grow by themselves (see CONFIG.farms). R when ripe: pick the crop.
+    wheatFarm:  { hits: 2, tool: 'axe',    drops: { wheatFarm: 1 },  solid: false, farm: 'wheat' },
+    carrotFarm: { hits: 2, tool: 'axe',    drops: { carrotFarm: 1 }, solid: false, farm: 'carrot' },
+    cornFarm:   { hits: 2, tool: 'axe',    drops: { cornFarm: 1 },   solid: false, farm: 'corn' }
   },
   tools: {
     basicAxePower: 1,      // the axe you always carry
@@ -126,7 +136,8 @@ const CONFIG = {
                 speed: 30, size: 26, hitbox: 20, behavior: 'calm' },
       moose:  { name: 'Moose',  count: 4,  nearStart: 0, hits: 8,  drops: { meat: 8 },
                 speed: 30, size: 36, hitbox: 28, behavior: 'defends',
-                chaseSpeed: 95, damage: 2 },
+                chaseSpeed: 95, damage: 2,
+                rareDrop: { item: 'mooseHead', chance: 0.2 } },   // 1 in 5 moose drops its head. Only once per world.
       bear:   { name: 'Bear',   count: 3,  nearStart: 0, hits: 12, drops: { meat: 12 },
                 speed: 30, size: 40, hitbox: 30, behavior: 'hunter',
                 chaseSpeed: 90, damage: 2, minStartDistance: 18 },
@@ -173,6 +184,15 @@ const CONFIG = {
     wildNearStart: 2,      // wild garlic kept close to the start (5–10 squares away)
     minWild: 20,           // the forest always has at least this much wild garlic
     stageTime: 180         // seconds for each growing stage (sprout → leaves → ripe): 2 stages = about one game day
+  },
+  farms: {
+    stageTime: 120,        // seconds for each growing stage: seeds → sprouts → green → ripe (3 stages = 6 minutes)
+    // What each farm gives when you pick it (R), then it grows again by itself.
+    kinds: {
+      wheat:  { item: 'wheat',  harvest: 3, words: 'wheat' },
+      carrot: { item: 'carrot', harvest: 3, words: 'carrots' },
+      corn:   { item: 'corn',   harvest: 2, words: 'corn cobs' }
+    }
   },
   caves: {
     count: 4,              // cave openings on the map: the first one is the old (haunted) mine
@@ -257,10 +277,23 @@ const CONFIG = {
   storage: {
     slots: 27              // how many slots a chest has (3 rows of 9, like Minecraft)
   },
+  // Old, empty camps in the forest. Nobody lives there any more: the homes are free to use,
+  // and each one has a bed and a chest with useful things inside.
+  camps: {
+    tentCamps: 3,          // 3 tents around a campfire
+    cabinCamps: 2,         // 3 cabins around an empty clearing (no campfire)
+    minDistanceFromStart: 16,   // squares
+    minDistanceApart: 14,       // squares between two camps
+    // What can be in each chest: [item, least, most, chance 0 to 1]. Ammo and a seed packet are always there.
+    // 'seedPacket' = a wheat, carrot or corn seed packet (chosen at random); sometimes a second kind too.
+    seedKinds: ['wheatSeeds', 'carrotSeeds', 'cornSeeds'],
+    loot: [['ammo', 6, 12, 1], ['seedPacket', 1, 2, 1], ['seedPacket', 1, 1, 0.4], ['torch', 2, 4, 0.6], ['cookedMeat', 2, 4, 0.6],
+           ['planks', 4, 8, 0.5], ['wool', 2, 4, 0.5], ['coal', 2, 4, 0.4], ['iron', 1, 3, 0.3], ['bone', 1, 2, 0.3]]
+  },
   // The trophy shelf on the wall of your tent: one place for each trophy you can find.
-  // For now there is one trophy: the Knight's Quest coin from the secret chest. More can be added to this list later.
+  // The Knight's Quest coin (secret chest in a cave) and the moose head (a rare moose drop). More can be added later.
   trophyShelf: {
-    trophies: ['coin']
+    trophies: ['coin', 'mooseHead']
   },
   furnace: {
     cookTime: 6,           // seconds for one piece of meat (one at a time, like Minecraft)
@@ -310,6 +343,7 @@ const CONFIG = {
     rifle:        { name: 'Hunting rifle',  stack: 1, gun: true },
     table:        { name: 'Crafting table', placeable: 'table' },
     tent:         { name: 'Tent',           placeable: 'tent' },
+    cabin:        { name: 'Wooden cabin',   placeable: 'cabin' },   // another home, like the tent (make as many as you like)
     bed:          { name: 'Bed',            insideTent: true },     // goes inside your tent, not outside
     furnace:      { name: 'Stone furnace',  placeable: 'furnace' }, // outside or inside your tent, cooks with coal
     storage:      { name: 'Chest',          placeable: 'storage' }, // keep your things in it (outside or inside your tent)
@@ -319,12 +353,25 @@ const CONFIG = {
     woodWall:     { name: 'Wooden wall',    placeable: 'woodWall' },
     stoneWall:    { name: 'Stone wall',     placeable: 'stoneWall' },
     garlic:       { name: 'Garlic',         placeable: 'garlic0' },  // plant it, or shoot it with the slingshot
+    seeds:        { name: 'Garlic seed packet', placeable: 'garlic0' },  // from older camps: Q plants it, like garlic
+    wheatSeeds:   { name: 'Wheat seed packet' },     // found in old camps: craft a wheat farm with it
+    carrotSeeds:  { name: 'Carrot seed packet' },
+    cornSeeds:    { name: 'Corn seed packet' },
+    wheatFarm:    { name: 'Wheat farm',  placeable: 'wheatFarm' },
+    carrotFarm:   { name: 'Carrot farm', placeable: 'carrotFarm' },
+    cornFarm:     { name: 'Corn farm',   placeable: 'cornFarm' },
+    wheat:        { name: 'Wheat' },                 // 3 wheat in a row: bread
+    carrot:       { name: 'Carrot',       food: 2 },
+    corn:         { name: 'Corn',         food: 1, cooksInto: 'roastedCorn' },   // cook it on a campfire or in a furnace
+    roastedCorn:  { name: 'Roasted corn', food: 4 },
+    bread:        { name: 'Bread',        food: 5 },
     slingshot:    { name: 'Garlic slingshot', stack: 1, sling: true },
     cape:         { name: 'Vampire cape',   stack: 1, light: 160 }, // a bigger light around you at night
     bone:         { name: 'Bone' },                               // a dog treat: feed it to a wolf to tame it
     gate:         { name: 'Wooden gate',    placeable: 'gate' },
     key:          { name: 'Gate key',       stack: 1 },             // hold it and press R at a closed gate: lock / unlock
     coin:         { name: "Knight's Quest trophy coin", stack: 1, trophy: true },   // the secret prize in the one hidden chest: put it on the shelf in your tent
+    mooseHead:    { name: 'Moose head',     stack: 1, trophy: true },   // rare: one moose drops it, only once. Hang it in your tent
     shelf:        { name: 'Trophy shelf',   placeable: 'shelf' },   // put your coins on it (R)
     glowShroom:   { name: 'Glow mushroom',  food: 1 },              // grows in caves
     gold:         { name: 'Gold' }                                  // from the haunted gold mine
@@ -347,6 +394,7 @@ const CONFIG = {
     { makes: 'woodWall',     amount: 6, pattern: ['PPP', 'PPP'],        key: { P: 'planks' } },
     { makes: 'stoneWall',    amount: 6, pattern: ['SSS', 'SSS'],        key: { S: 'stone' } },
     { makes: 'tent',         amount: 1, pattern: [' L ', 'LLL', 'K K'], key: { L: 'wool', K: 'sticks' } },
+    { makes: 'cabin',        amount: 1, pattern: ['PPP', 'WGW', 'WWW'], key: { P: 'planks', W: 'woodWall', G: 'gate' } },  // a plank roof, wooden walls, a gate for the door
     { makes: 'bed',          amount: 1, pattern: ['LLL', 'PPP'],        key: { L: 'wool', P: 'planks' } },
     { makes: 'campfire',     amount: 1, pattern: [' K ', 'KCK', 'WWW'], key: { K: 'sticks', C: 'coal', W: 'wood' } },
     { makes: 'furnace',      amount: 1, pattern: ['SSS', 'S S', 'SSS'], key: { S: 'stone' } },
@@ -356,6 +404,10 @@ const CONFIG = {
     { makes: 'slingshot',    amount: 1, pattern: ['KLK', ' K ', ' K '], key: { K: 'sticks', L: 'wool' } },
     { makes: 'gate',         amount: 1, pattern: ['KPK', 'KPK'],        key: { K: 'sticks', P: 'planks' } },
     { makes: 'key',          amount: 1, pattern: ['I', 'K'],            key: { I: 'iron', K: 'sticks' } },
+    { makes: 'wheatFarm',    amount: 1, pattern: ['PPP', 'PSP', 'PPP'], key: { P: 'planks', S: 'wheatSeeds' } },   // seed packet in the middle, planks around it
+    { makes: 'carrotFarm',   amount: 1, pattern: ['PPP', 'PSP', 'PPP'], key: { P: 'planks', S: 'carrotSeeds' } },
+    { makes: 'cornFarm',     amount: 1, pattern: ['PPP', 'PSP', 'PPP'], key: { P: 'planks', S: 'cornSeeds' } },
+    { makes: 'bread',        amount: 1, pattern: ['WWW'],               key: { W: 'wheat' } },
     { makes: 'fishingRod',   amount: 1, pattern: ['  K', ' KL', 'K L'], key: { K: 'sticks', L: 'wool' } }
   ],
   sound: {
@@ -426,6 +478,7 @@ const CONFIG = {
     vampCape: '#1f1a24', vampLining: '#8f2330', vampFace: '#e6e1dc', vampHair: '#121014', bat: '#2a2430',
     caveBat: '#625870', mushroomCap: '#c0392b', mushroomDot: '#f1ede0', mushroomStem: '#e9e4d8', gold: '#e8c547',
     tableTop: '#b88b56', tableEdge: '#6e4a2c', tableLine: '#8a6437',
+    cabinLog: '#8a5a34', cabinLogLine: '#5e3b20', cabinRoof: '#6b3a2a', cabinRoofLine: '#4e2a1e', cabinWindow: '#f2c66e',
     tentCloth: '#d9ceb2', tentShade: '#b9ad8f', tentPole: '#7a5230', tentDoor: '#4b3f30',
     bedFrame: '#8a6437', bedPillow: '#efe9dd', bedBlanket: '#b5463b',
     stone: '#8a8a86', fireOuter: '#e8893a', fireInner: '#f2c14e', fireGlow: 'rgba(242, 170, 80, 0.16)',

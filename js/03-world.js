@@ -94,6 +94,8 @@ const World = (() => {
     wantedTrees = countTrees();
     damage = new Map(); fading = []; cooking = new Map(); tents = new Map(); crops = new Map(); gates = new Map();
     shelves = new Map(); cave = null; under = null; forest = null; caveMaps = {}; outside = null;
+    makeCamps(makeRandom(seed + 41));
+    wantedTrees = countTrees();
   }
 
   // ----- Rivers and ponds -----
@@ -430,6 +432,7 @@ const World = (() => {
     const { tx, ty } = tileOf(px, py);
     const name = nameAt(tx, ty);
     if (name === 'grass' || !B[name] || B[name].hits === 0 || isBorder(tx, ty)) return null;   // water and caves can't be broken
+    if (B[name].cabinPart) { const m = mainOf(tx, ty); return { tx: m.tx, ty: m.ty, name: 'cabin', block: B.cabin }; }   // any square of a cabin
     return { tx, ty, name, block: B[name] };
   }
 
@@ -440,8 +443,13 @@ const World = (() => {
     const dmg = (damage.get(i) || 0) + power;
     if (dmg < B[name].hits) { damage.set(i, dmg); return null; }
     damage.delete(i);
+    const ripeFarm = B[name].farm && (crops.get(i) || 0) >= FARM_RIPE ? CONFIG.farms.kinds[B[name].farm] : null;
+    if (ripeFarm) { tiles[i] = GRASS; crops.delete(i); return Object.assign({}, B[name].drops, { [ripeFarm.item]: ripeFarm.harvest }); }
     tiles[i] = GRASS;
     crops.delete(i);
+    if (name === 'cabin') [[1, 0, 'cabinR'], [0, 1, 'cabinB'], [1, 1, 'cabinBR']].forEach(([a, b, part]) => {   // the whole cabin goes
+      if (nameAt(tx + a, ty + b) === part) tiles[(ty + b) * W.width + tx + a] = GRASS;
+    });
     const partner = partnerOf(i);                // a gate: both squares go together
     if (partner >= 0 && NAMES[tiles[partner]] === 'gate') {
       tiles[partner] = GRASS; damage.delete(partner);
@@ -461,8 +469,8 @@ const World = (() => {
     if (inside) {                              // everything inside a tent comes back too
       tents.delete(i);
       const back = Object.assign({}, B[name].drops), add = (id, n) => { back[id] = (back[id] || 0) + n; };
-      if (name === 'tent') {                   // the things you placed inside the tent
-        if (inside.bed) add('bed', 1);
+      if (name === 'tent' || name === 'cabin') {   // the things you placed inside the tent or cabin
+        if (inside.bed && !inside.old) add('bed', 1);   // an old camp's worn bed falls apart
         if (inside.furnace) add('furnace', 1);
         if (inside.table) add('table', 1);
         if (inside.chest) add('storage', 1);
@@ -489,9 +497,10 @@ const World = (() => {
 
   // Put something on an empty grass tile.
   function place(tx, ty, name) {
+    if (name === 'cabin') return placeCabin(tx, ty);
     if (isBorder(tx, ty) || tileAt(tx, ty) !== GRASS) return false;
     tiles[ty * W.width + tx] = TILES[name];
-    if (name === 'garlic0') crops.set(ty * W.width + tx, 0);   // planted garlic starts growing
+    if (name === 'garlic0' || B[name].farm) crops.set(ty * W.width + tx, 0);   // planted garlic and new farms start growing
     tents.delete(ty * W.width + tx);
     if (name === 'furnace') tentData(tx, ty).furnace = { fuel: 0, cooking: [], done: {} };
     if (name === 'storage') tentData(tx, ty).chest = newChest();
@@ -651,11 +660,13 @@ const World = (() => {
     }
   }
 
-  // Planted garlic grows: sprout → green leaves → ripe.
+  // Planted garlic grows: sprout → green leaves → ripe. Farms grow too (seeds → sprouts → green → ripe).
+  const FARM_RIPE = 3 * CONFIG.farms.stageTime;
   function growCrops(dt) {
     crops.forEach((t, i) => {
       t += dt;
       const name = NAMES[tiles[i]];
+      if (B[name] && B[name].farm) { crops.set(i, Math.min(t, FARM_RIPE)); return; }
       if (name !== 'garlic0' && name !== 'garlic1') { crops.delete(i); return; }
       if (t >= CONFIG.garlic.stageTime) {
         tiles[i] = name === 'garlic0' ? TILES.garlic1 : TILES.garlic2;
@@ -664,6 +675,20 @@ const World = (() => {
       }
       crops.set(i, t);
     });
+  }
+
+  // A farm's stage: 0 seeds, 1 sprouts, 2 green, 3 ripe.
+  function farmStage(tx, ty) {
+    const i = ty * W.width + tx;
+    return Math.min(3, Math.floor((crops.get(i) || 0) / CONFIG.farms.stageTime));
+  }
+  // Pick a ripe farm: returns { item, n }, and the farm starts growing again. Not ripe: null.
+  function harvest(tx, ty) {
+    const b = blockAt(tx, ty);
+    if (!b || !b.farm || farmStage(tx, ty) < 3) return null;
+    crops.set(ty * W.width + tx, 0);
+    const k = CONFIG.farms.kinds[b.farm];
+    return { item: k.item, n: k.harvest };
   }
 
   // ----- Gates -----
@@ -686,6 +711,102 @@ const World = (() => {
     gates.set(y2 * W.width + x2, Object.assign({ part: 1 }, base));
     return true;
   }
+  // ----- Cabins: 2 x 2 squares. The top-left square keeps what is inside. -----
+  const CABIN_PARTS = [[1, 0, 'cabinR'], [0, 1, 'cabinB'], [1, 1, 'cabinBR']];
+  function cabinFits(tx, ty) {
+    return [[0, 0], ...CABIN_PARTS].every(([a, b]) => !isBorder(tx + a, ty + b) && tileAt(tx + a, ty + b) === GRASS);
+  }
+  function placeCabin(tx, ty) {          // tx, ty: the top-left square
+    if (!cabinFits(tx, ty)) return false;
+    tiles[ty * W.width + tx] = TILES.cabin;
+    CABIN_PARTS.forEach(([a, b, part]) => { tiles[(ty + b) * W.width + tx + a] = TILES[part]; damage.delete((ty + b) * W.width + tx + a); });
+    tents.delete(ty * W.width + tx);
+    return true;
+  }
+  // The square that keeps the cabin (or the same square for anything else).
+  function mainOf(tx, ty) {
+    const b = blockAt(tx, ty);
+    return b && b.cabinPart ? { tx: tx + b.cabinPart[0], ty: ty + b.cabinPart[1] } : { tx, ty };
+  }
+  const bigCabin = (tx, ty) => nameAt(tx + 1, ty) === 'cabinR';   // old saves may have small 1-square cabins
+  // Small 1-square cabins from older saves grow into big ones (everything inside comes along).
+  // The new squares may only cover grass, trees, rocks or wild garlic, never where you stand.
+  function growSmallCabins(playerPos) {
+    const ts = W.tileSize;
+    for (let ty = 0; ty < W.height; ty++) for (let tx = 0; tx < W.width; tx++) {
+      if (nameAt(tx, ty) !== 'cabin' || bigCabin(tx, ty)) continue;
+      const i = ty * W.width + tx;
+      for (const [ax, ay] of [[tx, ty], [tx - 1, ty], [tx, ty - 1], [tx - 1, ty - 1]]) {
+        const sq = [[0, 0], [1, 0], [0, 1], [1, 1]].map(([a, b]) => [ax + a, ay + b]).filter(([x, y]) => x !== tx || y !== ty);
+        const ok = sq.every(([x, y]) => {
+          const b = blockAt(x, y);
+          if (isBorder(x, y) || (b && (!b.natural || b.water))) return false;
+          return !playerPos || Math.hypot((x + 0.5) * ts - playerPos.x, (y + 0.5) * ts - playerPos.y) > ts;
+        });
+        if (!ok) continue;
+        const inside = tents.get(i);
+        tiles[i] = GRASS; tents.delete(i);
+        sq.forEach(([x, y]) => { tiles[y * W.width + x] = GRASS; damage.delete(y * W.width + x); });
+        placeCabin(ax, ay);
+        if (inside) tents.set(ay * W.width + ax, inside);
+        break;
+      }
+    }
+  }
+
+  // ----- Old camps: 3 tents around a campfire, or 3 cabins around a clearing. Free to use. -----
+  function campLoot(rand) {
+    const chest = newChest(); let k = 0;
+    CONFIG.camps.loot.forEach(([id, lo, hi, chance]) => {
+      if (rand() >= chance || k >= chest.length) return;
+      const n = lo + Math.floor(rand() * (hi - lo + 1));
+      if (id === 'seedPacket') {                 // a farm seed packet: one kind per stack, never the same kind twice
+        const left = CONFIG.camps.seedKinds.filter(sk => !chest.some(sl => sl && sl.id === sk));
+        if (!left.length) return;
+        chest[k++] = { id: left[Math.floor(rand() * left.length)], n };
+        return;
+      }
+      chest[k++] = { id, n };
+    });
+    return chest;
+  }
+  function oldHome(tx, ty, rand) {
+    tents.set(ty * W.width + tx, { bed: true, furnace: null, table: false, chest: campLoot(rand), old: true });
+  }
+  // avoid: a position to stay away from (you, in an older world that gets its camps now).
+  function makeCamps(rand, avoid) {
+    const CP = CONFIG.camps, ts = W.tileSize, start = spawnPoint(), made = [];
+    const kinds = [...Array(CP.tentCamps).fill('tent'), ...Array(CP.cabinCamps).fill('cabin')];
+    kinds.forEach(kind => {
+      for (let tries = 0; tries < 4000; tries++) {
+        const cx = 6 + Math.floor(rand() * (W.width - 12)), cy = 7 + Math.floor(rand() * (W.height - 13));
+        const px = (cx + 0.5) * ts, py = (cy + 0.5) * ts;
+        if (Math.hypot(px - start.x, py - start.y) < CP.minDistanceFromStart * ts) continue;
+        if (avoid && Math.hypot(px - avoid.x, py - avoid.y) < 12 * ts) continue;
+        if (made.some(m => Math.hypot(m[0] - cx, m[1] - cy) < CP.minDistanceApart)) continue;
+        if (ring && Math.abs(cx - ring.tx) < 9 && Math.abs(cy - ring.ty) < 9) continue;
+        let ok = true;                    // the whole camp: only grass, trees, rocks or wild garlic, nothing built
+        for (let y = cy - 5; y <= cy + 3 && ok; y++) for (let x = cx - 5; x <= cx + 4 && ok; x++) {
+          const b = blockAt(x, y);
+          if (isBorder(x, y) || (b && (!b.natural || b.water || b.cave)) || !nothingBuiltNear(x, y, 1)) ok = false;
+        }
+        if (!ok) continue;
+        for (let y = cy - 4; y <= cy + 2; y++) for (let x = cx - 4; x <= cx + 3; x++) tiles[y * W.width + x] = GRASS;   // a clearing
+        if (kind === 'tent') {
+          tiles[cy * W.width + cx] = TILES.campfire;
+          [[cx - 2, cy], [cx + 2, cy], [cx, cy - 2]].forEach(([x, y]) => { tiles[y * W.width + x] = TILES.tent; oldHome(x, y, rand); });
+        } else {                          // the clearing in the middle is 2 squares wide: cx-1 and cx
+          [[cx - 3, cy], [cx + 1, cy], [cx - 1, cy - 3]].forEach(([x, y]) => { placeCabin(x, y); oldHome(x, y, rand); });
+        }
+        made.push([cx, cy, kind]);
+        break;
+      }
+    });
+    camps = made;
+  }
+  let camps = [];
+  function campList() { return camps.slice(); }
+
   function gateAt(tx, ty) { return nameAt(tx, ty) === 'gate' ? gates.get(ty * W.width + tx) || null : null; }
   // Both squares of the gate: [{ tx, ty }, ...]
   function gateSquares(tx, ty) {
@@ -767,7 +888,8 @@ const World = (() => {
     for (let ty = y0; ty <= y1; ty++)
       for (let tx = x0; tx <= x1; tx++) {
         const b = blockAt(tx, ty);
-        if (b && b.light) out.push({ x: (tx + 0.5) * ts - camX, y: (ty + 0.5) * ts - camY, r: b.light });
+        const mid = b && b.light && nameAt(tx, ty) === 'cabin' && bigCabin(tx, ty) ? ts / 2 : 0;   // a big cabin glows from its middle
+        if (b && b.light) out.push({ x: (tx + 0.5) * ts + mid - camX, y: (ty + 0.5) * ts + mid - camY, r: b.light });
       }
     if (ring && under === null) out.push({ x: (ring.tx + 0.5) * ts - camX, y: (ring.ty + 0.5) * ts - camY, r: 75 });
     if (cave) cave.deco.forEach(d => {
@@ -787,7 +909,7 @@ const World = (() => {
     return { seed, tiles: encode(F.tiles), names: NAMES, wantedTrees, cooking: Array.from(F.cooking.entries()),
              tents: Array.from(F.tents.entries()), ring, crops: Array.from(F.crops.entries()),
              gates: Array.from(F.gates.entries()), water: 2, caves: Array.from(caves.entries()),
-             shelves: Array.from(F.shelves.entries()), caveVersion: CAVE_VERSION,
+             shelves: Array.from(F.shelves.entries()), caveVersion: CAVE_VERSION, camps,
              under: Object.keys(caveMaps).map(id => { const L = caveMaps[id]; return {
                id: +id, tiles: encode(L.tiles), cooking: Array.from(L.cooking.entries()), tents: Array.from(L.tents.entries()),
                gates: Array.from(L.gates.entries()), shelves: Array.from(L.shelves.entries()),
@@ -835,6 +957,12 @@ const World = (() => {
     else makeCaves(makeRandom(seed + 31), true, playerPos);             // older worlds get their caves once
     // Older saves may have little or no iron: make sure there is enough.
     ensureIron(makeRandom(seed + 5));
+    if (d.camps) camps = d.camps;
+    else { makeCamps(makeRandom(seed + 41), playerPos); wantedTrees = countTrees(); }   // older worlds get their old camps once
+    growSmallCabins(playerPos);                                                          // every cabin is the same size
+    // Old camps from an earlier version had garlic seed packets: they become farm seed packets (wheat, carrot or corn).
+    const kinds = CONFIG.camps.seedKinds; let k = 0;
+    tents.forEach(d => { if (d.old && d.chest) d.chest.forEach((sl, j) => { if (sl && sl.id === 'seeds') d.chest[j] = { id: kinds[k++ % kinds.length], n: sl.n }; }); });
   }
 
   // Small bar that shows how many hits are left.
@@ -900,6 +1028,67 @@ const World = (() => {
     ctx.fillStyle = C.tentShade;  ctx.fillRect(sx + pad + s / 2, sy + pad, s / 2, s);  // right roof
     ctx.fillStyle = C.tentPole;   ctx.fillRect(sx + ts / 2 - 1, sy + pad, 2, s);       // ridge
     ctx.fillStyle = C.tentDoor;   ctx.fillRect(sx + ts / 2 - 5, sy + pad + s - 6, 10, 6);
+  }
+
+  // The big cabin (2 x 2 squares). Each square draws its own quarter, so it looks right at the edge of the screen too.
+  function drawCabin(ctx, sx, sy, tx, ty) {
+    const b = blockAt(tx, ty), ts = W.tileSize;
+    if (!b || !b.enter && !b.cabinPart) return drawBigCabin(ctx, sx, sy);        // a broken cabin, fading away
+    if (!b.cabinPart && !bigCabin(tx, ty)) return drawCabinSmall(ctx, sx, sy);
+    const off = b.cabinPart || [0, 0], x = sx + off[0] * ts, y = sy + off[1] * ts;
+    ctx.save(); ctx.beginPath(); ctx.rect(sx, sy, ts, ts); ctx.clip();
+    drawBigCabin(ctx, x, y);
+    ctx.restore();
+  }
+  function drawBigCabin(ctx, x, y) {                    // x, y: top-left of the 80 x 80 picture
+    const r = (c, a, b, w, h) => { ctx.fillStyle = c; ctx.fillRect(x + a, y + b, w, h); };
+    r(C.treeShadow, 9, 12, 68, 66);                                              // soft shadow
+    r(C.cabinLog, 6, 30, 68, 44);                                                // log walls
+    for (let k = 0; k < 7; k++) r(C.cabinLogLine, 6, 35 + k * 6, 68, 1);
+    for (let k = 0; k < 7; k++) { r('#a06a3e', 4, 31 + k * 6, 4, 4); r('#a06a3e', 72, 31 + k * 6, 4, 4); }   // log ends
+    r('#7d7d78', 56, 2, 9, 14); r('#5f5f5b', 56, 2, 9, 2);                       // stone chimney
+    r(C.cabinRoof, 16, 6, 48, 8); r(C.cabinRoof, 8, 13, 64, 8); r(C.cabinRoof, 2, 20, 76, 12);   // stepped roof
+    r(C.cabinRoofLine, 16, 13, 48, 1); r(C.cabinRoofLine, 8, 20, 64, 1); r(C.cabinRoofLine, 2, 31, 76, 2);
+    r('#8a4a34', 16, 6, 48, 2);                                                  // ridge
+    r('#3a2616', 34, 50, 12, 24); r('#c9a26a', 43, 61, 2, 2);                    // door and its handle
+    r('#6e4a2c', 30, 74, 20, 3);                                                 // doorstep
+    [[12, 42], [56, 42]].forEach(([a, b]) => {                                   // two warm windows
+      r(C.cabinLogLine, a - 1, b - 1, 14, 12); r(C.cabinWindow, a, b, 12, 10);
+      r(C.cabinLogLine, a + 5, b, 2, 10); r(C.cabinLogLine, a, b + 4, 12, 2);
+    });
+  }
+  // A farm: soil in a plank frame with 3 rows of plants. They change slowly as they grow (nothing moves).
+  function drawFarm(ctx, sx, sy, tx, ty) {
+    const kind = blockAt(tx, ty) ? blockAt(tx, ty).farm : 'wheat', stage = blockAt(tx, ty) ? farmStage(tx, ty) : 3;
+    const r = (c, a, b, w, h) => { ctx.fillStyle = c; ctx.fillRect(sx + a, sy + b, w, h); };
+    r(C.treeShadow, 4, 4, 36, 36);
+    r('#a47a4f', 2, 2, 36, 36); r('#8a6437', 2, 2, 36, 2); r('#8a6437', 2, 36, 36, 2);   // plank frame
+    r('#6b4a2e', 5, 5, 30, 30);                                                           // soil
+    for (let row = 0; row < 3; row++) {
+      const base = 13 + row * 10;                                                         // the bottom of this row of plants
+      r('#57391f', 5, base - 1, 30, 3);                                                   // furrow
+      for (let col = 0; col < 3; col++) {
+        const x = 8 + col * 10;
+        if (stage === 0) { r('#d9c79a', x + 1, base - 2, 2, 2); continue; }                       // seeds
+        if (stage === 1) { r('#7fb36a', x + 1, base - 4, 2, 4); continue; }                       // little sprouts
+        if (stage === 2) { r('#5f9a4e', x, base - 7, 4, 7); r('#7fb36a', x + 1, base - 7, 2, 2); continue; }   // green
+        if (kind === 'wheat') { r('#c9a23c', x + 1, base - 8, 2, 8); r('#e8c55a', x, base - 9, 4, 4); }       // golden wheat
+        else if (kind === 'carrot') { r('#5f9a4e', x, base - 8, 4, 4); r('#7fb36a', x + 1, base - 9, 2, 2); r('#e07b2e', x, base - 4, 4, 4); }   // leaves, orange tops
+        else { r('#4f8a3f', x + 1, base - 9, 2, 9); r('#6f9a4e', x - 1, base - 6, 2, 2); r('#f2d04a', x + 3, base - 7, 3, 5); }   // tall corn with a cob
+      }
+    }
+  }
+
+  function drawCabinSmall(ctx, sx, sy) {                // a little log cabin: roof, log walls, a door and a warm window
+    const ts = W.tileSize, pad = 2, s = ts - pad * 2, x = sx + pad, y = sy + pad;
+    ctx.fillStyle = C.treeShadow;    ctx.fillRect(x + 3, y + 3, s, s);
+    ctx.fillStyle = C.cabinLog;      ctx.fillRect(x + 2, y + 14, s - 4, s - 14);                 // log walls
+    ctx.fillStyle = C.cabinLogLine;  for (let k = 0; k < 4; k++) ctx.fillRect(x + 2, y + 18 + k * 5, s - 4, 1);
+    ctx.fillStyle = C.cabinRoof;     ctx.fillRect(x, y + 4, s, 11); ctx.fillRect(x + 4, y, s - 8, 5);   // roof
+    ctx.fillStyle = C.cabinRoofLine; ctx.fillRect(x, y + 14, s, 2); ctx.fillRect(x + 4, y + 8, s - 8, 1);
+    ctx.fillStyle = '#3a2616';       ctx.fillRect(x + s / 2 - 4, y + s - 11, 8, 11);              // door
+    ctx.fillStyle = C.cabinWindow;   ctx.fillRect(x + 5, y + 19, 7, 6); ctx.fillRect(x + s - 12, y + 19, 7, 6);   // windows
+    ctx.fillStyle = C.cabinLogLine;  ctx.fillRect(x + 8, y + 19, 1, 6); ctx.fillRect(x + s - 9, y + 19, 1, 6);
   }
 
   function drawBed(ctx, sx, sy) {
@@ -1104,11 +1293,11 @@ const World = (() => {
   function drawStoneWall(ctx, sx, sy, tx, ty) { drawWall(ctx, sx, sy, tx, ty, C.stoneWall, C.stoneWallLine); }
 
   const drawTile = {
-    tree: drawTree, stone: drawStone, coal: drawCoal, iron: drawIron, table: drawTable, tent: drawTent,
+    tree: drawTree, stone: drawStone, coal: drawCoal, iron: drawIron, table: drawTable, tent: drawTent, cabin: drawCabin, cabinR: drawCabin, cabinB: drawCabin, cabinBR: drawCabin,
     bed: drawBed, campfire: drawCampfire, torch: drawTorch, woodWall: drawWoodWall, stoneWall: drawStoneWall,
     garlicWild: drawGarlicWild, garlic0: drawGarlic0, garlic1: drawGarlic1, garlic2: drawGarlic2, gate: drawGate, water: drawWater, cave: drawCave,
     caveRock: drawCaveRock, crackedRock: drawCracked, caveExit: drawCaveExit, chest: drawChest, glowShroom: drawGlowShroom, shelf: drawShelf, gold: drawGold,
-    furnace: drawFurnace, storage: drawStorage
+    furnace: drawFurnace, storage: drawStorage, wheatFarm: drawFarm, carrotFarm: drawFarm, cornFarm: drawFarm
   };
 
   // Draw only the tiles that are on screen.
@@ -1167,7 +1356,7 @@ const World = (() => {
   }
 
   return { generate, spawnPoint, isSolidAt, isBorder, tileAt, nameAt, blockAt, tileOf, breakableAt,
-           hitBlock, place, hasNear, nearestDistance, addCooking, tentHasBed, setTentBed, tentData, cookFurnaces, storageAt, storageEmpty,
+           hitBlock, place, hasNear, farmStage, harvest, placeCabin, cabinFits, mainOf, campList, nearestDistance, addCooking, tentHasBed, setTentBed, tentData, cookFurnaces, storageAt, storageEmpty,
            ringCenter, growCrops, inLight, isWater, caveAt, furnace, furnaceReady, placeGate, gateAt, gateSquares, setGate, update, draw, lights, drawHitBar, makeRandom, randomFarGrass,
            save, load, TILES, GRASS, getSeed: () => seed,
            enterCave, leaveCave, chestAt, shelfCoins, addShelfCoins, caveTitle: id => CONFIG.caves.kinds[id % CONFIG.caves.kinds.length].title,

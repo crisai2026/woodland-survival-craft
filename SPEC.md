@@ -36,6 +36,20 @@ No story for now.
 
 ## SPEC 3 · MECHANICS
 
+**Main menu** (when the game opens)
+- The logo at the top in the middle: "Woodland" (gold) and "Survival Craft" (white), with an axe, a pickaxe and a few
+  pixel pine trees. Nothing moves.
+- Background: a still pixel picture. The lumberjack stands on a green hill on the left, his axe in a stump,
+  looking out over the forest: rows of pine trees, a lake, blue hills and a soft evening sun. Nothing moves.
+  A little joke for Felix: the lumberjack is dressed like him, in a red hoodie with the hood up, shorts,
+  and white sneakers with a green line.
+- Big buttons like in Knight's Quest (dark blue; the chosen one is bright blue with a gold border):
+  **Continue** (your saved world; grey if there is no saved world yet) and **New game**.
+- Arrows or W/S choose, Enter (or Space, E, a click) picks. The game waits behind the menu.
+- New game with a saved world asks once more ("Start over? Your world and your things will be lost.").
+  Click again to confirm, Esc to cancel. Then a fresh forest starts straight away (no menu).
+- **Esc during the game** (with nothing else open) opens the menu as a pause: **Resume** and New game.
+
 **Controls**
 
 | Key | What it does |
@@ -47,7 +61,7 @@ No story for now.
 | Q | Place the chosen item on the square in front of you |
 | R (hold) / right mouse button | Eat the chosen food |
 | R facing a campfire | Put raw meat on it to cook |
-| R facing your tent | Go inside the tent (place your bed, furnace, crafting table, chest; sleep) |
+| R facing your tent or cabin | Go inside (place your bed, furnace, crafting table, chest, trophies; sleep) |
 | R (or E) facing a chest | Open it: put your things away or take them out |
 | R facing a furnace | Put raw meat or fish in (uses coal), or take the cooked food |
 | F with the rifle in your hand | Shoot |
@@ -114,6 +128,9 @@ No story for now.
 | 6 wooden walls | 6 planks (2 rows of 3) | table |
 | 6 stone walls | 6 stone (2 rows of 3) | table |
 | Tent | 4 wool in a roof shape + 2 sticks as legs | table |
+| Wooden cabin | 3 planks on top (roof), wooden wall + gate + wooden wall, 3 wooden walls at the bottom | table |
+| Wheat / carrot / corn farm | the seed packet in the middle, 8 planks all around it | table |
+| Bread | 3 wheat in a row | — |
 | Bed | 3 wool on top of 3 planks | table |
 | Campfire | sticks, 1 coal, 3 wood | table |
 | Hunting rifle | 3 iron on top, 2 planks + 1 stick below | table |
@@ -158,10 +175,17 @@ The bear is the biggest animal you can hunt.
 | Wolf | 3 | 3 meat | **Hunter**: attacks you on sight (1 heart per bite) | 5 |
 | Deer | 4 | 4 meat | Calm | 8 |
 | Sheep | 5 | 2 wool + 1 meat | Calm (the wool animal, not in the food chain) | 10 (3 start near you) |
-| Moose | 8 | 8 meat | **Fights back only if you hit it first** (2 hearts per bite) | 4 |
+| Moose | 8 | 8 meat (rare: + a moose head) | **Fights back only if you hit it first** (2 hearts per bite) | 4 |
 | Bear | 12 | 12 meat | **Hunter**: attacks you on sight (2 hearts per bite) | 3 |
 
 A stone sword (or stone axe) hunts with power 2, so big animals need fewer hits.
+
+**Rare drop: the moose head**
+- When you beat a moose, there is a 1 in 5 chance it also drops a **moose head** (CONFIG rareDrop chance 0.2).
+- You get it only once per world: after the first moose head, moose drop only meat.
+- When it drops: a soft chime and "A rare find: a moose head! Hang it on the trophy shelf in your tent."
+- It is a trophy: hold it in your tent at the trophy shelf and press **Q**. It hangs on a light wooden plaque
+  with its wide antlers, next to the Knight's Quest coin. **F** takes it back.
 
 **Attacks — calm and fair**
 - A steady "!" (no blinking) shows above an animal 1 second before it comes toward you.
@@ -195,8 +219,61 @@ A stone sword (or stone axe) hunts with power 2, so big animals need fewer hits.
   The world waits while you are inside.
 - Breaking a tent gives back the tent and the bed inside it.
 - **Beds can't be placed outside.** Pressing Q with a bed shows a pop-up:
-  "You can't place your bed outside of your tent. Face your tent and press R to go inside, then place it there."
+  "You can't place your bed outside. Face your tent or cabin and press R to go inside, then place it there."
   (Beds that were already outside in old saves still work.)
+
+**Wooden cabin** (a second kind of home)
+- Made at a crafting table: a plank roof, wooden walls and a gate for the door (see Crafting). Place it with **Q**.
+- On the map it is **big: 2 × 2 squares** (a tent is 1 square): log walls, a stepped brown roof, a stone chimney,
+  a door with a doorstep and two warm windows. At night the windows glow softly.
+- Q places it in front of you; it needs 2 × 2 squares of open grass ("No space here. A cabin needs 2 x 2 squares
+  of open grass in front of you."). R facing any side of it goes inside. Hitting any part of it hits the whole cabin.
+  **Every cabin is the same size**: the ones you craft and the old ones in the camps. A small 1-square cabin from an
+  older save grows into a big one when the game loads (everything inside comes along).
+- **R** facing it goes inside. It works exactly like the tent: the same places for the bed, furnace, crafting table,
+  chest and trophy shelf, the same keys. Only the look is different: thick log walls, two windows with a calm sky,
+  a light plank floor and a green rug. The title says "Your cabin" and the messages say "cabin".
+- **As many homes as you like**: make as many tents and cabins as you want and keep them all.
+  Each one keeps its own things inside (its own bed, furnace, table, chest and trophies).
+- Breaking a cabin (axe, 4 hits) gives back the cabin and everything inside it (like the tent).
+  Empty its chest first.
+
+**Old camps** (abandoned, free to use)
+- Somewhere in the forest (16+ squares from the start, far apart) there are old camps nobody lives in any more:
+  - **3 tent camps**: 3 tents around a campfire (left, right and top), in a small clearing.
+  - **2 cabin camps**: 3 big cabins in the same layout around an empty clearing, with no campfire.
+- Every old tent and cabin has an old bed and a **chest with useful things** (CONFIG.camps.loot):
+  always ammo (6–12) and a farm seed packet (1–2: wheat, carrot or corn), sometimes a second kind,
+  and maybe torches, cooked meat, planks, wool, coal, iron or bones.
+- **Old camps are loot only** (they work differently from the homes you craft, on purpose):
+  - The title always says "An old tent" / "An old cabin". The first time: "Nobody lives here any more.
+    Take what you need from the chest (top, next to the lantern)."
+  - **R at the chest** opens the "Old chest": you can **take things out** (click, drag, Shift + click),
+    but you can't put anything in ("This old chest is only for taking things out.").
+  - You **can't sleep** there ("This old bed is too worn to sleep in. Sleep in a tent or cabin you made.").
+  - You **can't place** a bed, furnace, table, chest or trophy, and F takes nothing back
+    ("This is an old camp. You can't sleep or put your things here. Take what you need from the chest.").
+    No dashed places are shown inside.
+  - Breaking an old tent or cabin gives you the tent or cabin (empty its chest first); the worn bed falls apart.
+- Older saved worlds get their old camps once, far from where you stand.
+
+**Garlic seed packet** — from an older version. Q on grass plants it; it grows into garlic.
+  Garlic packets still lying in old camp chests turn into farm seed packets when the game loads.
+
+**Farms** (wheat, carrot, corn)
+- **Seed packets** (wheat, carrot, corn) are found in the chests of the old camps.
+- **Craft a farm** at a crafting table: the seed packet in the middle, surrounded by 8 planks.
+  The kind of seed packet decides the farm: wheat farm, carrot farm or corn farm.
+- **Place it** with Q on grass (outside only: "Farms need sunlight. Put it outside."). A farm is 1 square: soil in a
+  plank frame with 3 rows of plants. Put several side by side to make a bigger field. You can walk over it.
+- **It grows by itself** (also while you sleep): seeds → sprouts → green → ripe, 2 minutes per stage
+  (CONFIG.farms.stageTime). The plants change slowly; nothing moves or blinks.
+  Ripe: golden wheat, green leaves with orange carrot tops, or tall corn with yellow cobs.
+- **R at a ripe farm** picks it: 3 wheat, 3 carrots or 2 corn cobs ("You picked 3 carrots. The farm will grow again.").
+  Then it starts again from seeds. R before it is ripe: "Your wheat farm is growing (sprouts). Come back later."
+- **F** breaks the farm (axe, 2 hits) and gives the farm back (and the crop too, if it was ripe).
+- What the crops are for: **carrot** (food 2), **corn** (food 1; cook it on a campfire or in a furnace → **roasted corn**, food 4),
+  **wheat** (3 in a row → **bread**, food 5).
 
 **Stone furnace (outside or inside the tent)**
 - Recipe: 8 stone in a ring (crafting table).
@@ -299,16 +376,16 @@ In the daytime: "The mushrooms seem to be waiting for the night..."
   one comes; nothing is lost. F before a bite pulls the line in. Walking away or changing item pulls it in too.
 - Fish are food: eat them raw (hold R) or cook them on a campfire or in the stone furnace, like meat.
 
-**Placing (Q)**: crafting table, tent, campfire, torch, wooden wall, stone wall, gate, stone furnace, chest, garlic (planting).
+**Placing (Q)**: crafting table, tent, wooden cabin, farm, campfire, torch, wooden wall, stone wall, gate, stone furnace, chest, garlic (planting).
 Inside the tent: bed, stone furnace, crafting table, chest (each in its own place).
-**Sleeping**: inside your tent, in your bed, in the evening or at night. The screen fades slowly,
+**Sleeping**: inside your tent or cabin, in your bed, in the evening or at night. The screen fades slowly,
 the night passes, and you wake up in the morning. That bed or tent becomes your home.
 
 **Drops** lie on the ground. Walk near them and they slide to you. If your inventory is full,
 they stay on the ground.
 
 **Saving**: the game saves itself in this browser every 15 seconds and when you close it.
-"Start a new world" (in the H controls box) asks once more, then starts a fresh forest.
+"Start a new world" (in the H controls box) or New game in the main menu asks once more, then starts a fresh forest.
 
 **Music and sounds** (made inside the game, no sound files, nothing loud, nothing sudden)
 - **Forest sounds** in the background: soft wind and leaves that slowly come and go.
@@ -354,7 +431,7 @@ they stay on the ground.
   It is always there (nothing to build). Each trophy has its own place (a faint dashed circle while it is empty).
   Hold the trophy, walk to the shelf and press **Q**: it stands on the shelf (gold, with a soft steady shine), a chime plays,
   "Well done!". It stays there (also after saving). **F** at the shelf takes it back. Breaking the tent gives it back too.
-  For now there is one trophy (CONFIG.trophyShelf.trophies); later we may add one for each secret room.
+  Two trophies for now (CONFIG.trophyShelf.trophies): the Knight's Quest coin and the moose head. Later we may add one for each secret room.
 - The old trophy shelf block (outside) is still out of the game (no recipe), kept only so old saves work.
 - **Knight's Quest secrets** (Easter eggs), one in the haunted mine, the deep cave and the crystal cave:
   - The clue: a short tunnel that stops for no reason, with a Knight's Quest sword scratched in the floor (easy to see
@@ -481,3 +558,14 @@ they stay on the ground.
   The crafting table place in the tent is a little easier to reach.
 - Fix — The item you carry with the mouse in the inventory was hidden behind the screen (after Step 24). It shows on top again.
 - Fix — You can drop items straight onto the hotbar at the bottom of the screen while the inventory is open.
+- Step 26 — Main menu: the logo and Knight's Quest style buttons (Continue, New game). Esc opens it as a pause (Resume).
+- Fix — "Start a new world" really starts fresh now (before, the old world was saved again while the page reloaded).
+- Step 27 — Main menu background: the lumberjack on a hill on the left, looking at a view of the forest.
+- Step 28 — Rare moose drop: a moose head (1 in 5, only once per world), a trophy for the shelf in your tent.
+- Step 29 — Wooden cabin: a second kind of home, like the tent. Make and keep as many tents and cabins as you like.
+- Step 30 — Bigger cabins (2 × 2 squares). Old camps in the forest: 3 tents around a campfire, or 3 cabins around a clearing,
+  each with a bed and a chest (ammo, garlic seed packets and other useful things).
+- Step 31 — All cabins the same size (small saved cabins grow). Old camps are loot only: take from the chest, no sleeping, no placing.
+- Step 32 — Farms: wheat, carrot and corn seed packets in the old camps; craft a farm (seed packet in the middle, planks around),
+  it grows by itself, R to pick. Bread from wheat, roasted corn.
+- Step 33 — The lumberjack on the main menu dresses like Felix: red hoodie, shorts, white sneakers with a green line.

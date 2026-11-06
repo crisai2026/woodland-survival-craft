@@ -2,7 +2,9 @@ const Save = (() => {
   const key = CONFIG.save.key;
   const seedKey = key + '-next-seed';
 
+  let resetting = false;              // starting a new world: don't save the old one again on the way out
   function write() {
+    if (resetting) return;
     try {
       localStorage.setItem(key, JSON.stringify({
         version: 1, world: World.save(), animals: Animals.save(), drops: Drops.save(),
@@ -21,6 +23,7 @@ const Save = (() => {
   }
 
   function newWorld() {
+    resetting = true;
     try {
       localStorage.removeItem(key);
       localStorage.setItem(seedKey, String(Math.floor(Math.random() * 1e9)));

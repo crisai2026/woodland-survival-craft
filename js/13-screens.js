@@ -87,5 +87,5 @@ const Screens = (() => {
   });
 
   return { sleep, faint, setHelp, notice, peaceful: () => peaceful,
-           busy: () => sleeping || fainted || noticeOpen || Tent.isOpen() };
+           busy: () => sleeping || fainted || noticeOpen || Tent.isOpen() || (typeof Menu !== 'undefined' && Menu.isOpen()) };
 })();
